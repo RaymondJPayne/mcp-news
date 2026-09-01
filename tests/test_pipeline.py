@@ -142,6 +142,13 @@ def test_end_to_end_collection(sandbox, feed_server):
     assert second.new_articles == 0
 
 
+def test_a_completed_sweep_is_recorded_even_when_nothing_was_due(sandbox):
+    collector, store, _ = _collector(sandbox)
+    assert store.get_meta("last_collection") is None
+    asyncio.run(collector.run_once())
+    assert store.get_meta("last_collection")
+
+
 def test_a_broken_source_does_not_end_the_run(sandbox, feed_server):
     from mcpnews.store.base import SourceRecord
 

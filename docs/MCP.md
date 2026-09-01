@@ -23,6 +23,10 @@ provider is configured, `search` returns keyword results and says so in
 | `profile` | Read the active profile, or explain a score. |
 | `status` | Corpus size, tier, provider health, queue depth. |
 
+Two of these are not implemented yet and say so rather than guessing: `brief` and
+`entity` return an empty result with an explicit note, because they depend on
+entity extraction and change detection. See [`ROADMAP.md`](ROADMAP.md).
+
 ## Signatures
 
 ```python
@@ -75,6 +79,9 @@ a failure, not a stylistic preference.
 **No tool writes article content.** The MCP surface is read-only over the corpus.
 `profile` reads; it does not edit. Configuration changes go through the CLI or the
 dashboard, where a human sees them.
+
+**Transports.** `mcpnews mcp` speaks stdio; `mcpnews mcp --http --port 8379`
+serves streamable HTTP. Both run the same tools over the same store.
 
 **`status` exists so assistants can explain themselves.** When a reader asks why
 an answer was thin, the assistant can check the tier and queue depth and say

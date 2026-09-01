@@ -84,8 +84,10 @@ class Collector:
         if max_sources:
             sources = sources[:max_sources]
         if not sources:
-            report.finished_at = _iso(_now())
-            return report
+            # A sweep that found nothing due is still a completed sweep. Recording
+            # it stops the Status screen reporting "never" for the first twenty
+            # minutes of every fresh install.
+            return self._finish(report)
 
         async with Fetcher(user_agent=col.user_agent, concurrency=col.concurrency,
                            per_host_delay_s=col.per_host_delay_s,
@@ -99,6 +101,9 @@ class Collector:
 
             await asyncio.gather(*(one(s) for s in sources), return_exceptions=True)
 
+        return self._finish(report)
+
+    def _finish(self, report: CollectionReport) -> CollectionReport:
         report.finished_at = _iso(_now())
         self.store.set_meta("last_collection", report.finished_at)
         return report
