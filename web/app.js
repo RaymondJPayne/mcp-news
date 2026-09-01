@@ -156,6 +156,255 @@ async function api(path, { params, method = "GET", body } = {}) {
 
 const say = (err) => toast(t(err?.key || "err.generic", err?.params));
 
+/* =============================== sharing ==============================
+ * Sharing means sharing the publisher's link. Never the local copy, never an
+ * address on this machine, never an article id from our own database — the
+ * server composes the payload from the source URL alone and sends nothing when
+ * there is no source URL, which is why the control below simply does not exist
+ * for such an article.
+ *
+ * The system share sheet is the primary path. One tap reaches every application
+ * the reader actually installed, including ones no list here could name. The
+ * explicit list is the fallback for browsers without it, and every entry in it
+ * is a plain URL opened in a new tab: no vendor SDK, no embedded widget, no
+ * remote script, no pixel.
+ */
+const SVG_NS = "http://www.w3.org/2000/svg";
+const MASTODON_KEY = "mcpnews.mastodon";
+
+/* Self-drawn glyphs. No icon font, no downloaded brand asset, no remote image:
+   simple monochrome shapes that inherit currentColor. The label beside each one
+   is what identifies it, which is also what keeps us clear of every one of these
+   companies' brand-asset licences. */
+const ICONS = {
+  share: [["path", { d: "M12 3v12" }], ["path", { d: "M8 7l4-4 4 4" }],
+          ["path", { d: "M5 12v7a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-7" }]],
+  mastodon: [["circle", { cx: 7, cy: 7, r: 2.4 }], ["circle", { cx: 17, cy: 7, r: 2.4 }],
+             ["circle", { cx: 12, cy: 17, r: 2.4 }], ["path", { d: "M9.4 7h5.2" }],
+             ["path", { d: "M8 9.1l2.7 5.9" }], ["path", { d: "M16 9.1l-2.7 5.9" }]],
+  bluesky: [["path", { d: "M6.5 17h10.2a3.2 3.2 0 0 0 .3-6.4 5.2 5.2 0 0 0-9.9-1.3A3.4 3.4 0 0 0 6.5 17z" }]],
+  linkedin: [["rect", { x: 3, y: 7, width: 18, height: 13, rx: 2 }],
+             ["path", { d: "M9 7V5.5A1.5 1.5 0 0 1 10.5 4h3A1.5 1.5 0 0 1 15 5.5V7" }],
+             ["path", { d: "M3 12h18" }]],
+  reddit: [["path", { d: "M4 6.5A2.5 2.5 0 0 1 6.5 4h11A2.5 2.5 0 0 1 20 6.5v7a2.5 2.5 0 0 1-2.5 2.5H9l-5 4z" }],
+           ["circle", { cx: 8.5, cy: 10, r: 0.9 }], ["circle", { cx: 12, cy: 10, r: 0.9 }],
+           ["circle", { cx: 15.5, cy: 10, r: 0.9 }]],
+  whatsapp: [["path", { d: "M20 11.5a7.5 7.5 0 0 1-11 6.6L4 20l1.9-4.8A7.5 7.5 0 1 1 20 11.5z" }],
+             ["path", { d: "M9.2 9c0 3 1.9 4.9 4.8 4.9l.9-1.5-1.9-.9-.7.7a4.4 4.4 0 0 1-1.3-1.3l.7-.7-.9-1.9z" }]],
+  telegram: [["path", { d: "M21 4.5 3 11.2l5.6 1.9L21 4.5z" }],
+             ["path", { d: "M8.6 13.1 10.6 19l2.8-3.6" }],
+             ["path", { d: "M8.6 13.1 21 4.5l-7.6 10.9" }]],
+  facebook: [["circle", { cx: 9.5, cy: 8, r: 3 }],
+             ["path", { d: "M3.5 19a6 6 0 0 1 12 0" }],
+             ["circle", { cx: 17, cy: 8.5, r: 2.2 }],
+             ["path", { d: "M16 13.2A5.2 5.2 0 0 1 21 18.2" }]],
+  x: [["path", { d: "M5.5 5.5l13 13" }], ["path", { d: "M18.5 5.5l-13 13" }]],
+  email: [["rect", { x: 3, y: 5, width: 18, height: 14, rx: 2 }],
+          ["path", { d: "m3.6 6.6 8.4 5.8 8.4-5.8" }]],
+  link: [["path", { d: "M10.5 13.5a4.5 4.5 0 0 0 6.4 0l2-2a4.5 4.5 0 0 0-6.4-6.4l-1 1" }],
+         ["path", { d: "M13.5 10.5a4.5 4.5 0 0 0-6.4 0l-2 2a4.5 4.5 0 0 0 6.4 6.4l1-1" }]],
+};
+
+function icon(name) {
+  const node = document.createElementNS(SVG_NS, "svg");
+  const base = {
+    viewBox: "0 0 24 24", width: "18", height: "18", fill: "none",
+    stroke: "currentColor", "stroke-width": "1.7", "stroke-linecap": "round",
+    "stroke-linejoin": "round", "aria-hidden": "true", focusable: "false",
+  };
+  for (const [k, v] of Object.entries(base)) node.setAttribute(k, v);
+  for (const [tag, attrs] of ICONS[name] || ICONS.link) {
+    const shape = document.createElementNS(SVG_NS, tag);
+    for (const [k, v] of Object.entries(attrs)) shape.setAttribute(k, String(v));
+    node.append(shape);
+  }
+  return node;
+}
+
+const rememberedInstance = () => {
+  try { return localStorage.getItem(MASTODON_KEY) || ""; } catch { return ""; }
+};
+
+/** Copy over plain HTTP too.
+ *
+ *  The asynchronous clipboard is unavailable on a page served over plain HTTP to
+ *  anything but localhost, which is exactly how someone reads this from their
+ *  phone on their own network. execCommand is deprecated and is the only thing
+ *  that works there, so both paths exist and the caller is told which won. */
+function legacyCopy(text) {
+  const box = document.createElement("textarea");
+  box.value = text;
+  /* Off-screen rather than hidden: a display:none or hidden field cannot hold a
+     selection, and scrolling the page to a visible one would be worse. readonly
+     keeps the on-screen keyboard away on iOS, where select() alone is ignored
+     and setSelectionRange is what actually selects. */
+  box.setAttribute("readonly", "");
+  box.setAttribute("aria-hidden", "true");
+  box.setAttribute("tabindex", "-1");
+  box.style.cssText = "position:fixed;top:0;inset-inline-start:-9999px;opacity:0";
+  document.body.append(box);
+  const selection = document.getSelection();
+  const previous = selection && selection.rangeCount ? selection.getRangeAt(0) : null;
+  let ok = false;
+  try {
+    box.focus({ preventScroll: true });
+    box.select();
+    box.setSelectionRange(0, text.length);
+    ok = document.execCommand("copy");
+  } catch { ok = false; }
+  box.remove();
+  if (previous && selection) { selection.removeAllRanges(); selection.addRange(previous); }
+  return ok;
+}
+
+async function copyLink(text) {
+  try {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  } catch { /* permission refused, or no clipboard here: fall through */ }
+  return legacyCopy(text);
+}
+
+let openShare = null;
+
+function closeShareMenu({ restoreFocus = false } = {}) {
+  if (!openShare) return;
+  const { menu, trigger } = openShare;
+  openShare = null;
+  menu.remove();
+  trigger.setAttribute("aria-expanded", "false");
+  document.removeEventListener("keydown", onShareKey, true);
+  document.removeEventListener("pointerdown", onSharePointer, true);
+  if (restoreFocus) trigger.focus();
+}
+
+function shareItems() {
+  return openShare ? [...openShare.menu.querySelectorAll(".share-item")] : [];
+}
+
+function onShareKey(e) {
+  if (!openShare) return;
+  if (e.key === "Escape") { e.preventDefault(); closeShareMenu({ restoreFocus: true }); return; }
+  const items = shareItems();
+  if (!items.length || !openShare.menu.contains(document.activeElement)) return;
+  const at = items.indexOf(document.activeElement);
+  const step = { ArrowDown: 1, ArrowUp: -1 }[e.key];
+  if (step) {
+    e.preventDefault();
+    items[(at + step + items.length) % items.length].focus();
+  } else if (e.key === "Home") { e.preventDefault(); items[0].focus(); }
+  else if (e.key === "End") { e.preventDefault(); items[items.length - 1].focus(); }
+}
+
+function onSharePointer(e) {
+  if (!openShare) return;
+  if (!openShare.menu.contains(e.target) && !openShare.trigger.contains(e.target)) {
+    closeShareMenu();
+  }
+}
+
+function askMastodon(template) {
+  /* prompt is synchronous, so the click that opened this is still the gesture
+     that opens the tab underneath. */
+  const answer = prompt(t("share.mastodon.prompt"), rememberedInstance());
+  if (answer == null) return;
+  const host = answer.trim().toLowerCase()
+    .replace(/^[a-z][a-z0-9+.-]*:\/\//, "").split("/")[0].split("@").pop().split(":")[0];
+  if (!/^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/.test(host)) {
+    toast(t("share.mastodon.invalid"));
+    return;
+  }
+  try { localStorage.setItem(MASTODON_KEY, host); } catch { /* private mode */ }
+  closeShareMenu();
+  window.open(template.replace("{instance}", encodeURIComponent(host)),
+              "_blank", "noopener,noreferrer");
+}
+
+function copyItem(url) {
+  const label = el("span", {}, t("share.copy"));
+  return el("button", {
+    type: "button", role: "menuitem", class: "share-item",
+    onclick: async () => {
+      const ok = await copyLink(url);
+      label.textContent = t(ok ? "share.copied" : "share.copy_failed");
+      toast(t(ok ? "share.copied" : "share.copy_failed"));
+      if (ok) setTimeout(() => closeShareMenu(), 700);
+    },
+  }, icon("link"), label);
+}
+
+async function openShareMenu(articleId, share, wrap, trigger) {
+  closeShareMenu();
+  const menu = el("div", { class: "share-menu", role: "menu", "aria-label": t("share.menu") },
+    el("p", { class: "meta" }, t("common.loading")));
+  wrap.append(menu);
+  trigger.setAttribute("aria-expanded", "true");
+  openShare = { menu, trigger };
+  document.addEventListener("keydown", onShareKey, true);
+  document.addEventListener("pointerdown", onSharePointer, true);
+
+  let data;
+  try {
+    data = await api(`/api/share/${articleId}`,
+                     { params: { instance: rememberedInstance() || undefined } });
+  } catch (e) {
+    menu.replaceChildren(el("p", { class: "notice bad" }, t(e?.key || "err.generic", e?.params)));
+    return;
+  }
+  if (!openShare || openShare.menu !== menu) return;   /* closed while we waited */
+
+  const rows = data.targets.map((target) => {
+    const label = t(`share.target.${target.id}`);
+    if (target.href.includes("{instance}")) {
+      return el("button", {
+        type: "button", role: "menuitem", class: "share-item",
+        onclick: () => askMastodon(target.href),
+      }, icon(target.id), el("span", {}, label));
+    }
+    return el("a", {
+      role: "menuitem", class: "share-item", href: target.href,
+      target: "_blank", rel: "noopener noreferrer",
+      onclick: () => closeShareMenu(),
+    }, icon(target.id), el("span", {}, label));
+  });
+  rows.push(copyItem(data.url || share.url));
+  menu.replaceChildren(...rows);
+  rows[0].focus();
+}
+
+/** The Share control for one article, or nothing at all.
+ *
+ *  No source URL means no payload from the server, which means no control: an
+ *  article we cannot attribute to a publisher is not one we offer to pass on. */
+function shareControl(articleId, share) {
+  if (!share || !share.url) return null;
+  const wrap = el("div", { class: "share" });
+  const trigger = el("button", {
+    type: "button", class: "share-btn", "aria-haspopup": "menu",
+    "aria-expanded": "false", "aria-label": t("share.label"), title: t("share.label"),
+    onclick: () => {
+      if (openShare && openShare.trigger === trigger) { closeShareMenu(); return; }
+      /* navigator.share needs the gesture that is still on the stack here, so
+         nothing may be awaited before it. */
+      if (navigator.share) {
+        try {
+          navigator.share({ title: share.title, text: share.text_only, url: share.url })
+            .catch((e) => {
+              if (e && e.name === "AbortError") return;   /* they changed their mind */
+              openShareMenu(articleId, share, wrap, trigger);
+            });
+          return;
+        } catch { /* exposed but not implemented: use the list */ }
+      }
+      openShareMenu(articleId, share, wrap, trigger);
+    },
+  }, icon("share"), el("span", {}, t("share.label")));
+  wrap.append(trigger);
+  return wrap;
+}
+
 /* ============================ setup wizard ============================ */
 const setupState = {
   step: 0, language: FALLBACK_LANG, data_dir: "", archive_dir: "",
@@ -430,7 +679,8 @@ function articleCard(item) {
       `${item.domain} · ${when(item.published_at)} · ` +
       t("today.score", { score: Number(item.display_score ?? item.interest_score).toFixed(1) })),
     item.summary ? el("p", {}, item.summary) : null,
-    chips.length ? el("div", { class: "chips" }, chips) : null);
+    chips.length ? el("div", { class: "chips" }, chips) : null,
+    shareControl(item.article_id, item.share));
 }
 
 /* ============================== search ================================ */
@@ -506,8 +756,10 @@ async function renderArticle(id) {
     el("p", { class: "meta" },
       `${a.domain} · ${t("article.published", { when: when(a.published_at) })} · ` +
       t("article.collected", { when: when(a.fetched_at) })),
-    el("p", {}, el("a", { href: a.url, target: "_blank", rel: "noopener noreferrer" },
-      t("article.open_original"))),
+    el("div", { class: "row" },
+      el("a", { href: a.url, target: "_blank", rel: "noopener noreferrer" },
+        t("article.open_original")),
+      shareControl(a.article_id, a.share)),
     a.body
       ? el("div", { class: "article-body" },
           a.body.split("\n").filter((p) => p.trim()).map((p) => el("p", {}, p)))
@@ -848,6 +1100,48 @@ async function renderSettings() {
   nodes.push(withHelp(el("div", { class: "check" }, fulltext,
     el("label", {}, t("settings.collection.fulltext"))), "settings.collection.help_fulltext"));
 
+  /* --- sharing --- */
+  nodes.push(el("h2", {}, t("settings.section.sharing")));
+  nodes.push(el("p", { class: "lede" }, t("share.settings.body")));
+  nodes.push(el("p", { class: "help-body" }, t("share.settings.help")));
+  const attribution = el("input", {
+    type: "checkbox", id: "share-attribution", checked: s.sharing.attribution,
+  });
+  const attrText = input({ value: s.sharing.attribution_text,
+    placeholder: t("share.attribution.default_text") });
+  const attrUrl = input({ type: "url", value: s.sharing.attribution_url });
+  nodes.push(withHelp(el("div", { class: "check" }, attribution,
+    el("label", { for: "share-attribution" }, t("share.settings.attribution"))),
+    "share.settings.attribution_help"));
+  nodes.push(field("share.settings.text", attrText, "share.settings.text_help"));
+  nodes.push(field("share.settings.url", attrUrl, "share.settings.url_help"));
+  const linkOnly = (s.share_targets || []).filter((x) => !x.carries_text)
+    .map((x) => t(`share.target.${x.id}`)).join(", ");
+  if (linkOnly) {
+    nodes.push(el("p", { class: "meta" }, t("share.settings.link_only", { platforms: linkOnly })));
+  }
+  /* The reader's Mastodon server is remembered by their browser and never sent
+     anywhere, so this is the only place it can be seen or forgotten. */
+  const mastodonLine = el("p", { class: "meta" });
+  const drawMastodon = () => {
+    const host = rememberedInstance();
+    const kids = [`${t("share.settings.mastodon")}: `,
+      host || t("share.settings.mastodon_none")];
+    if (host) {
+      kids.push(" ", el("button", {
+        type: "button", class: "quiet",
+        onclick: () => {
+          try { localStorage.removeItem(MASTODON_KEY); } catch { /* private mode */ }
+          drawMastodon();
+          toast(t("share.settings.mastodon_forgotten"));
+        },
+      }, t("share.settings.mastodon_forget")));
+    }
+    mastodonLine.replaceChildren(...kids);
+  };
+  drawMastodon();
+  nodes.push(mastodonLine);
+
   nodes.push(el("div", { class: "actions" }, el("button", {
     class: "primary", type: "button",
     onclick: async (e) => {
@@ -860,6 +1154,11 @@ async function renderSettings() {
             collection: {
               interval_min: Number(interval.value), concurrency: Number(conc.value),
               respect_robots: robots.checked, fetch_fulltext: fulltext.checked,
+            },
+            sharing: {
+              attribution: attribution.checked,
+              attribution_url: attrUrl.value.trim(),
+              attribution_text: attrText.value.trim(),
             },
           },
         });

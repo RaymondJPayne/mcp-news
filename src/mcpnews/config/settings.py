@@ -47,6 +47,23 @@ class CollectionSettings:
 
 
 @dataclass
+class SharingSettings:
+    """What travels with an article the reader shares.
+
+    ``attribution_url`` is a plain editable field. The value below is only the
+    default the Settings screen offers; nothing else in the codebase may assume
+    it, because the owner has not settled on where the credit should point.
+
+    ``attribution_text`` empty means "use the catalogue default", which is how the
+    credit line comes out in the reader's own language instead of in English.
+    """
+
+    attribution: bool = True
+    attribution_url: str = "https://github.com/RaymondJPayne/mcp-news"
+    attribution_text: str = ""
+
+
+@dataclass
 class StoreSettings:
     backend: str = "sqlite"
     dsn: str = ""          # empty means "derive from data_dir"
@@ -68,6 +85,7 @@ class Settings:
     archive_dir: str = ""
     bundles: list[str] = field(default_factory=list)
     collection: CollectionSettings = field(default_factory=CollectionSettings)
+    sharing: SharingSettings = field(default_factory=SharingSettings)
     store: StoreSettings = field(default_factory=StoreSettings)
     blob: BlobSettings = field(default_factory=BlobSettings)
 
@@ -131,6 +149,16 @@ def load() -> Settings:
         max_body_bytes=int(col.get("max_body_bytes", base.collection.max_body_bytes)),
         user_agent=str(col.get("user_agent") or base.collection.user_agent),
     )
+    sh = raw.get("sharing")
+    if isinstance(sh, dict):
+        # `.get(key, default)` rather than `or`: a reader who turned attribution
+        # off wrote `false`, and `or` would quietly turn it back on for them.
+        s.sharing = SharingSettings(
+            attribution=bool(sh.get("attribution", base.sharing.attribution)),
+            attribution_url=str(sh.get("attribution_url",
+                                       base.sharing.attribution_url) or ""),
+            attribution_text=str(sh.get("attribution_text", "") or ""),
+        )
     st = raw.get("store") or {}
     s.store = StoreSettings(backend=str(st.get("backend") or "sqlite"),
                             dsn=str(st.get("dsn") or ""))

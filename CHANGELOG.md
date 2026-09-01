@@ -42,6 +42,29 @@ no network and no model.
 the mode it actually ran, article view with the score explained, sources with
 lifecycle badges, an interests editor with live preview, settings, and status.
 
+**Sharing, on Today and on the article view.** What leaves this machine is the
+publisher's link and nothing else: the payload is composed in `mcpnews/share.py`
+from the article's source URL alone, so a local address, a private-network
+address or an article id cannot reach a share target, and an article without a
+source link renders no control at all. The primary path is the Web Share API,
+which hands the reader their own operating system's share sheet and therefore
+every application they have installed. Browsers without it get an explicit list —
+Mastodon, Bluesky, LinkedIn, Reddit, WhatsApp, Telegram, Facebook, X, email and
+Copy link — as plain share-intent URLs opened in a new tab, with no vendor SDK,
+embedded widget, remote script or tracking pixel anywhere, and with icons drawn
+inline as SVG that inherits `currentColor`. Copy link falls back to
+`document.execCommand("copy")` where the asynchronous clipboard is unavailable,
+which is how it works over plain HTTP on a home network. The menu is keyboard
+navigable and closes on Escape and on an outside click. The reader's Mastodon
+server is remembered by their browser and by nothing else; Settings shows it and
+can forget it.
+
+**Settings → Sharing.** An attribution line, on by default, with a plain editable
+link and wording. Turning it off turns it off; nothing re-enables it. The wording
+defaults to a catalogue string, so the line a reader posts is in their own
+language, and the screen says plainly which platforms accept a link only and
+therefore drop the line.
+
 **Architecture provisioned now rather than retrofitted.** A database abstraction
 with a working SQLite backend and declared PostgreSQL and MySQL backends; a blob
 storage abstraction with a working local-filesystem backend and declared S3,

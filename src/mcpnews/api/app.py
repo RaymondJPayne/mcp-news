@@ -23,12 +23,12 @@ from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, Field
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from mcpnews import __version__, paths
+from mcpnews import __version__, paths, share
 from mcpnews.api.errors import ApiError, bad_request, not_found, setup_required
 from mcpnews.config import profile as profile_cfg
 from mcpnews.config import providers as providers_cfg
 from mcpnews.config import settings as settings_cfg
-from mcpnews.i18n import available_locales
+from mcpnews.i18n import available_locales, translator
 from mcpnews.ingest.canonical import canonicalise, domain_of, is_probably_url
 from mcpnews.ingest.fetcher import Fetcher, FetchError
 from mcpnews.ingest.pipeline import Collector, rescore
@@ -75,6 +75,7 @@ class SettingsIn(BaseModel):
     archive_dir: str | None = None
     bundles: list[str] | None = None
     collection: dict[str, Any] | None = None
+    sharing: dict[str, Any] | None = None
 
 
 class ProfileIn(BaseModel):
@@ -173,12 +174,41 @@ def _in_container() -> bool:
     return Path("/.dockerenv").exists() or Path("/run/.containerenv").exists()
 
 
+def _attribution(settings) -> str:
+    """The credit line, in the reader's language, or empty when turned off.
+
+    This is the one place the API composes a sentence rather than sending a key,
+    and it is not an exception to that rule so much as a different kind of
+    string: it is not interface text, it is the message the reader is about to
+    post somewhere. It is still translated, and the reader can edit or remove it.
+    """
+    sharing = settings.sharing
+    if not sharing.attribution:
+        return ""
+    text = sharing.attribution_text.strip()
+    if not text:
+        text = translator(settings.language).t(share.ATTRIBUTION_TEXT_KEY)
+    return share.attribution_line(text, sharing.attribution_url)
+
+
+def _share_for(app: App, record) -> dict | None:
+    """The share payload for one article, built only from the publisher's link.
+
+    ``record.url`` is the canonical source address. Nothing here can reach the
+    request, this machine's address or the article's local id, which is what
+    makes "the local copy is never shared" a property rather than a promise.
+    """
+    return share.payload(url=record.url or "", title=record.title or "",
+                         attribution=_attribution(app.settings))
+
+
 def _feed_items(app: App, articles, half_life_h) -> list[dict]:
     out = []
     for a in articles:
         d = a.to_dict()
         d["display_score"] = round(
             display_score(a.interest_score, a.published_at or a.fetched_at, half_life_h), 3)
+        d["share"] = _share_for(app, a)
         out.append(d)
     return out
 
@@ -400,6 +430,14 @@ def create_app(*, collector_loop: bool = True) -> FastAPI:
                 "respect_robots": s.collection.respect_robots,
                 "fetch_fulltext": s.collection.fetch_fulltext,
             },
+            "sharing": {
+                "attribution": s.sharing.attribution,
+                "attribution_url": s.sharing.attribution_url,
+                "attribution_text": s.sharing.attribution_text,
+            },
+            "share_targets": [{"id": target.id, "carries_text": target.carries_text,
+                               "needs_instance": target.needs_instance}
+                              for target in share.TARGETS],
             "store": {"backend": s.store.backend},
             "blob": {"backend": s.blob.backend, **blob, "usage_bytes": usage},
             "database": {"path": str(db),
@@ -437,6 +475,18 @@ def create_app(*, collector_loop: bool = True) -> FastAPI:
                                                      s.collection.respect_robots))
             s.collection.fetch_fulltext = bool(c.get("fetch_fulltext",
                                                      s.collection.fetch_fulltext))
+        if body.sharing is not None:
+            sh = body.sharing
+            # Off stays off. Nothing here re-enables attribution on the reader's
+            # behalf, and no later edit should either.
+            s.sharing.attribution = bool(sh.get("attribution", s.sharing.attribution))
+            if "attribution_url" in sh:
+                url = str(sh.get("attribution_url") or "").strip()
+                if url and not share.is_shareable(url):
+                    raise bad_request("err.share.bad_url")
+                s.sharing.attribution_url = url
+            if "attribution_text" in sh:
+                s.sharing.attribution_text = str(sh.get("attribution_text") or "").strip()
         for target in (s.data_path, s.archive_path):
             ok, key = paths.is_writable(target)
             if not ok:
@@ -572,7 +622,28 @@ def create_app(*, collector_loop: bool = True) -> FastAPI:
                 data["body_source"] = "archive"
         source = app.store.get_source(record.source_id) if record.source_id else None
         data["source"] = source.to_dict() if source else None
+        data["share"] = _share_for(app, record)
         return data
+
+    @api.get("/api/share/{article_id}")
+    async def share_targets(article_id: int, instance: str = Query("")) -> dict:
+        """Every explicit share target for one article, ready to open.
+
+        The browser only needs this when the reader has no system share sheet —
+        the sheet itself is fed by the payload already on the article. ``instance``
+        is the reader's Mastodon server if they have told the browser one;
+        without it the Mastodon link keeps a placeholder the browser fills in.
+        """
+        app = require_configured()
+        record = app.store.get_article(article_id)
+        if record is None:
+            raise not_found()
+        built = share.targets(url=record.url or "", title=record.title or "",
+                              attribution=_attribution(app.settings), instance=instance)
+        if built is None:
+            raise bad_request("err.share.unavailable")
+        payload = _share_for(app, record)
+        return {**payload, "targets": built, "max_length": share.MAX_LENGTH}
 
     @api.get("/api/explain/{article_id}")
     async def explain(article_id: int) -> dict:

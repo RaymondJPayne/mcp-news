@@ -121,7 +121,8 @@ def test_every_error_key_the_api_can_emit_exists_in_the_catalogue():
     keys = set()
     for path in source.rglob("*.py"):
         text = path.read_text(encoding="utf-8")
-        keys |= set(re.findall(r'"((?:err|settings|search|setup|status)\.[a-z0-9_.]+)"', text))
+        keys |= set(re.findall(
+            r'"((?:err|settings|search|setup|share|status)\.[a-z0-9_.]+)"', text))
     # Filenames look like dot-paths and are not message keys.
     keys = {k for k in keys if not k.endswith((".yaml", ".json", ".py", ".md"))}
     missing = sorted(k for k in keys if k not in EN)

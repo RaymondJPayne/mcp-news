@@ -49,6 +49,10 @@ A self-hosted news aggregator with three faces:
   complete; a new language is a copied file, translated, with no build step and
   no restart. Right-to-left is a one-line change. See
   [`docs/LOCALIZATION.md`](docs/LOCALIZATION.md).
+- **Sharing sends the publisher's link, never yours.** Every article carries a
+  Share control that opens your device's own share sheet, so it reaches every
+  application you actually have installed. Browsers without one get a short list
+  of plain share links instead. See *Sharing* below.
 - **No third-party UI framework.** The dashboard is hand-written HTML, CSS and
   JavaScript served by our own API. No vendor banner, no telemetry, no analytics,
   no build step, and no Node anywhere in the container.
@@ -115,6 +119,32 @@ mute:
 
 No training, no feedback loop you cannot see, no drift. If it surfaces something
 odd, the dashboard tells you which rule did it.
+
+## Sharing
+
+Every article in Today and in the article view has a Share control. What goes out
+is the **publisher's own link** — never a link to this machine, never an address
+only your network can resolve, and never an id from your database. An article we
+collected without a source link shows no Share control at all.
+
+Where the browser has the Web Share API — every current mobile browser and most
+desktop ones — one tap opens the operating system's share sheet, which reaches
+every application you have installed. That is the whole feature, and it is better
+than any list we could write. Browsers without it get a short explicit list
+instead: Mastodon, Bluesky, LinkedIn, Reddit, WhatsApp, Telegram, Facebook, X,
+email, and Copy link. Each of those is a plain share-intent URL opened in a new
+tab — no vendor SDK, no embedded widget, no remote script, no tracking pixel — and
+the icons are inline SVG we drew ourselves. Nothing about a share is recorded.
+Your Mastodon server is remembered by your browser alone; Settings shows it and
+can forget it.
+
+**Attribution.** A share carries one optional extra line crediting where the
+article reached you. It is on by default and configurable in **Settings →
+Sharing**: turn it off, change the wording, or point the link at your own page
+instead of the repository. Turning it off turns it off — nothing here re-enables
+it later. LinkedIn, Facebook and Reddit accept only a link and write their own
+preview, so the credit line does not travel with those three; the Settings screen
+says so.
 
 ## Capability levels
 

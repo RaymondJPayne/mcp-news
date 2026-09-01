@@ -95,9 +95,17 @@ Plain, calm, direct. Address the reader as *you*. Explain rather than command.
 Avoid jargon; where a technical term is unavoidable, the help text beside it must
 define it in ordinary language. No exclamation marks. No marketing.
 
-Two things stay untranslated: **mcp-news**, which is a product name, and the
-names of feed formats such as RSS, Atom and JSON Feed, which are the terms
-publishers themselves use.
+Three things stay untranslated: **mcp-news**, which is a product name; the names
+of feed formats such as RSS, Atom and JSON Feed, which are the terms publishers
+themselves use; and the platform names under `share.target.*` — Mastodon,
+Bluesky, LinkedIn and the rest are proper nouns everywhere. `share.target.email`
+is the exception, because it names a medium rather than a company: translate it.
+
+One value under `share.*` is not interface text at all.
+`share.attribution.default_text` is the credit line the *reader* posts when they
+share an article, so it has to read like something a person would write in that
+language rather than like a label. Everything else in that group is ordinary
+interface text.
 
 Help text is the part most worth spending time on. Roughly a third of the
 catalogue is `*.help*` keys, and they exist for a reader who has never heard of a
@@ -113,6 +121,7 @@ words.
 | `today.*` | The ranked feed |
 | `search.*`, `article.*` | Search and the article view |
 | `sources.*` | The source list and the add-a-source form |
+| `share.*` | The Share control, the fallback menu and the Sharing settings |
 | `profile.*` | The interests editor |
 | `settings.*` | Every settings screen, including its help text |
 | `status.*`, `tier.*` | Status, and the capability level in the header |

@@ -23,7 +23,7 @@ def test_every_key_used_by_the_dashboard_exists():
     # Keys built from a template literal are checked by prefix instead.
     dynamic_prefixes = ("tier.", "today.window.", "today.section.", "search.mode.",
                         "search.days.", "sources.status.", "profile.section.",
-                        "setup.profile.starter.", "status.provider.")
+                        "setup.profile.starter.", "share.target.", "status.provider.")
     missing = sorted(k for k in used
                      if k not in EN and not k.startswith(dynamic_prefixes))
     assert not missing, f"app.js uses keys that en.json does not define: {missing}"
