@@ -24,6 +24,10 @@ def get_adapter(kind: str) -> type:
     return _REGISTRY[kind]
 
 
+def registered_kinds() -> list[str]:
+    return sorted(_REGISTRY)
+
+
 class ProviderUnavailable(Exception):
     """Transient. Trips the circuit breaker and triggers failover."""
 
