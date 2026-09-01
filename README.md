@@ -205,5 +205,10 @@ is stubbed and why.
 
 ## Licence
 
-AGPL-3.0 for the code. Schemas and source lists are MIT, so anyone can build a
-compatible client. See [`LICENSE`](LICENSE).
+AGPL-3.0-or-later for the code — see [`LICENSE`](LICENSE).
+
+The source-file schema, the shipped source bundles and the interface string
+catalogues are MIT instead, so that writing a compatible client, adding a
+language or reusing the source list never means taking on AGPL obligations.
+Interoperability should not require adopting our licence. The exact file list is
+in [`LICENSE-MIT`](LICENSE-MIT).
