@@ -1,0 +1,58 @@
+version: 1
+bundle: core-world
+description: General world news. Broad, multilingual, publicly syndicated feeds.
+maintainer: community
+updated: 2026-09-01
+
+sources:
+  - id: bbc_world
+    name: BBC News — World
+    kind: rss
+    url: https://feeds.bbci.co.uk/news/world/rss.xml
+    lang: en
+    region: global
+    topics: [world, general]
+    interval_min: 20
+    status: active
+    added: 2026-09-01
+    verified: 2026-09-01
+    expires: 2027-09-01
+
+  - id: guardian_world
+    name: The Guardian — World
+    kind: rss
+    url: https://www.theguardian.com/world/rss
+    lang: en
+    region: global
+    topics: [world, general]
+    interval_min: 20
+    status: active
+    added: 2026-09-01
+    verified: 2026-09-01
+    expires: 2027-09-01
+
+  - id: npr_world
+    name: NPR — World
+    kind: rss
+    url: https://feeds.npr.org/1004/rss.xml
+    lang: en
+    region: us
+    topics: [world, general]
+    interval_min: 30
+    status: active
+    added: 2026-09-01
+    verified: 2026-09-01
+    expires: 2027-09-01
+
+  - id: dw_world_en
+    name: Deutsche Welle — World (EN)
+    kind: rss
+    url: https://rss.dw.com/rdf/rss-en-world
+    lang: en
+    region: europe
+    topics: [world, general]
+    interval_min: 30
+    status: active
+    added: 2026-09-01
+    verified: 2026-09-01
+    expires: 2027-09-01

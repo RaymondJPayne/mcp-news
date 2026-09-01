@@ -1,0 +1,29 @@
+name: mcp-news
+
+services:
+  node:
+    build: { context: ., dockerfile: docker/Dockerfile }
+    image: mcp-news:local
+    restart: unless-stopped
+    env_file: [.env]
+    environment:
+      MCPNEWS_DATA_DIR: /data
+      MCPNEWS_ARCHIVE_DIR: /archive
+    volumes:
+      - ./config:/app/config:ro          # your profile, providers and sources
+      - mcpnews_data:/data               # database
+      - mcpnews_archive:/archive         # full-text archive
+    ports:
+      - "127.0.0.1:${MCPNEWS_PORT:-8378}:8378"
+    # Bound to localhost by default. Put it behind your own reverse proxy if you
+    # want it on the network; this project ships no auth and makes no claim to.
+    healthcheck:
+      test: ["CMD", "python", "-m", "mcpnews.healthcheck"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+volumes:
+  mcpnews_data:
+  mcpnews_archive:

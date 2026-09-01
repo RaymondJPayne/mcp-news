@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>mcp-news</title>
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="stylesheet" href="/styles.css">
+<meta name="color-scheme" content="light dark">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="#/today">mcp-news</a>
+    <nav class="tabs">
+      <a href="#/today">Today</a>
+      <a href="#/search">Search</a>
+      <a href="#/sources">Sources</a>
+      <a href="#/profile">Profile</a>
+    </nav>
+    <span id="tier" class="tier" title="Capability tier">&nbsp;</span>
+  </header>
+
+  <main id="view" aria-live="polite"></main>
+
+  <footer class="foot">
+    <span id="status-line">&nbsp;</span>
+  </footer>
+
+  <script src="/app.js" type="module"></script>
+</body>
+</html>

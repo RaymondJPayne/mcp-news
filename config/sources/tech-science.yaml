@@ -1,0 +1,39 @@
+version: 1
+bundle: tech-science
+description: Technology, research and security.
+maintainer: community
+updated: 2026-09-01
+
+sources:
+  - id: arxiv_cs
+    name: arXiv — Computing Research
+    kind: arxiv
+    url: https://export.arxiv.org/api/query
+    lang: en
+    region: global
+    topics: [research, ai]
+    interval_min: 360
+    status: active
+    added: 2026-09-01
+    verified: 2026-09-01
+    expires: 2027-09-01
+    config:
+      categories: [cs.AI, cs.LG, cs.CL, cs.CR]
+      max_results: 100
+      min_delay_s: 3.0        # arXiv enforces this fleet-wide
+
+  - id: hackernews
+    name: Hacker News — front page
+    kind: json_feed
+    url: https://hn.algolia.com/api/v1/search_by_date
+    lang: en
+    region: global
+    topics: [technology]
+    interval_min: 30
+    status: active
+    added: 2026-09-01
+    verified: 2026-09-01
+    expires: 2027-09-01
+    config:
+      tags: story
+      min_points: 25

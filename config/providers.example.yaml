@@ -1,0 +1,54 @@
+# Copy to providers.yaml. Secrets stay in .env; this file names the variables.
+# See docs/PROVIDERS.md.
+
+providers:
+  local_chat:
+    kind: openai_compatible
+    base_url: ${LOCAL_CHAT_BASE_URL}
+    model: ${LOCAL_CHAT_MODEL:-qwen3-8b-instruct}
+    api_key_env: LOCAL_CHAT_API_KEY
+    timeout_s: 30
+    max_tokens: 1024
+    reasoning: off        # thinking tokens are billed and discarded; opt in only
+
+  local_embed:
+    kind: openai_compatible
+    base_url: ${LOCAL_EMBED_BASE_URL}
+    model: ${LOCAL_EMBED_MODEL:-bge-m3}
+    api_key_env: LOCAL_EMBED_API_KEY
+    dimensions: 1024
+    batch_size: 32
+    timeout_s: 20
+
+  cloud_chat:
+    kind: openai_compatible
+    base_url: ${CLOUD_CHAT_BASE_URL:-https://api.openai.com/v1}
+    model: ${CLOUD_CHAT_MODEL:-gpt-4o-mini}
+    api_key_env: CLOUD_CHAT_API_KEY
+    timeout_s: 45
+    max_tokens: 1024
+    cost_per_1k_in: 0.00015
+    cost_per_1k_out: 0.0006
+
+  cloud_embed:
+    kind: openai_compatible
+    base_url: ${CLOUD_EMBED_BASE_URL:-https://api.openai.com/v1}
+    model: ${CLOUD_EMBED_MODEL:-text-embedding-3-small}
+    api_key_env: CLOUD_EMBED_API_KEY
+    dimensions: 1536
+    batch_size: 128
+
+# Order is preference. Local first keeps data private and costs nothing;
+# reverse it if you would rather have quality first.
+chains:
+  chat:  [local_chat, cloud_chat]
+  embed: [local_embed, cloud_embed]
+
+failover:
+  max_attempts_per_slot: 2
+  backoff_initial_s: 1.0
+  backoff_factor: 2.0
+  open_after_failures: 3
+  cooldown_s: 300
+  probe_interval_s: 60
+  require_confirmation_for_paid_failover: false

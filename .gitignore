@@ -1,0 +1,28 @@
+# local configuration and secrets
+.env
+config/profile.yaml
+config/providers.yaml
+config/sources/local.yaml
+
+# data
+data/
+archive/
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
+
+# python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+dist/
+build/
+*.egg-info/
+
+# editors / os
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

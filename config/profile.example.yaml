@@ -1,0 +1,50 @@
+# Copy to profile.yaml and make it yours.
+#
+# THIS FILE IS THE ALGORITHM. There is no second, hidden model. Every article
+# is scored by matching these rules; the dashboard shows which ones fired.
+#
+# weight: 5 = tell me immediately, 1 = mildly interesting.
+# Be specific. Rare terms carry signal; common words match everything.
+#
+# See docs/PROFILE.md.
+
+version: 1
+
+identity:
+  name: Your Name
+  aliases: []
+  weight: 5
+
+interests:
+  - name: AI governance and regulation
+    match: [AI Act, model regulation, algorithmic accountability, AI safety policy]
+    weight: 5
+
+  - name: Semiconductor policy
+    match: [export control, lithography, fab, ASML, TSMC]
+    exclude: [semiconductor stocks]
+    weight: 4
+
+  - name: Open source
+    match: [open source, self-hosted, federated, AGPL]
+    weight: 3
+
+places:
+  - name: European Union
+    match: [European Union, Brussels, European Commission]
+    weight: 3
+
+organisations: []
+
+sources:
+  boost: {}
+  penalty: {}
+
+mute:
+  domains: []
+  keywords: [horoscope]
+
+scoring:
+  min_score: 1.0
+  cap_per_rule: 16.0
+  default_half_life_h: 36

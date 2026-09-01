@@ -1,0 +1,65 @@
+version: 1
+bundle: gov-agency
+description: >
+  Government and intergovernmental agency feeds. Factual, primary-source, and
+  generally intended for public redistribution.
+maintainer: community
+updated: 2026-09-01
+
+sources:
+  - id: cisa_advisories
+    name: CISA Cybersecurity Advisories
+    kind: rss
+    url: https://www.cisa.gov/cybersecurity-advisories/all.xml
+    lang: en
+    region: us
+    topics: [security, government]
+    interval_min: 120
+    status: active
+    added: 2026-09-01
+    verified: 2026-09-01
+    expires: 2027-09-01
+
+  - id: cisa_kev
+    name: CISA Known Exploited Vulnerabilities
+    kind: json_feed
+    url: https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json
+    lang: en
+    region: us
+    topics: [security, government]
+    interval_min: 180
+    status: active
+    added: 2026-09-01
+    verified: 2026-09-01
+    expires: 2027-09-01
+    config:
+      items_path: vulnerabilities
+      map: {title: vulnerabilityName, published: dateAdded, id: cveID}
+
+  - id: usgs_quakes
+    name: USGS — Significant Earthquakes
+    kind: json_feed
+    url: https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/4.5_day.geojson
+    lang: en
+    region: global
+    topics: [hazard, science]
+    interval_min: 30
+    status: active
+    added: 2026-09-01
+    verified: 2026-09-01
+    expires: 2027-09-01
+
+  - id: reliefweb
+    name: ReliefWeb — Situation Reports
+    kind: json_feed
+    url: https://api.reliefweb.int/v1/reports
+    lang: en
+    region: global
+    topics: [humanitarian, hazard]
+    interval_min: 180
+    status: active
+    added: 2026-09-01
+    verified: 2026-09-01
+    expires: 2027-09-01
+    config:
+      appname: mcp-news
