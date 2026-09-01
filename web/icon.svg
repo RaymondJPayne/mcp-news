@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="mcp-news">
+  <!-- Our own mark. No third-party logo appears anywhere in this application. -->
+  <rect width="64" height="64" rx="12" fill="#2a6b67"/>
+  <g fill="none" stroke="#dceae8" stroke-width="4" stroke-linecap="round">
+    <path d="M16 22h32M16 32h22M16 42h27"/>
+  </g>
+</svg>

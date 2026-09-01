@@ -1,10 +1,13 @@
 {
   "name": "mcp-news",
   "short_name": "news",
-  "description": "Your news, ranked by a file you wrote.",
+  "description": "Your news, ranked by rules you wrote.",
   "start_url": "/#/today",
+  "scope": "/",
   "display": "standalone",
   "background_color": "#0e141a",
   "theme_color": "#2a6b67",
-  "icons": []
+  "icons": [
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
 }

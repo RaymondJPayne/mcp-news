@@ -1,5 +1,7 @@
 <!doctype html>
-<html lang="en">
+<!-- The lang and dir attributes are set from the chosen locale at boot; the
+     values here are only what the document starts as before app.js runs. -->
+<html lang="en" dir="ltr">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -7,24 +9,32 @@
 <link rel="manifest" href="/manifest.webmanifest">
 <link rel="stylesheet" href="/styles.css">
 <meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#2a6b67">
+<!-- No CDN, no web font from someone else's server, no analytics, no telemetry. -->
 </head>
 <body>
-  <header class="topbar">
-    <a class="brand" href="#/today">mcp-news</a>
-    <nav class="tabs">
-      <a href="#/today">Today</a>
-      <a href="#/search">Search</a>
-      <a href="#/sources">Sources</a>
-      <a href="#/profile">Profile</a>
+  <a class="skip" href="#view" data-i18n="nav.skip_to_content">Skip to content</a>
+
+  <header class="topbar" id="topbar" hidden>
+    <a class="brand" href="#/today" data-i18n="app.name">mcp-news</a>
+    <nav class="tabs" id="tabs" aria-label="Main">
+      <a href="#/today"    data-i18n="nav.today">Today</a>
+      <a href="#/search"   data-i18n="nav.search">Search</a>
+      <a href="#/sources"  data-i18n="nav.sources">Sources</a>
+      <a href="#/profile"  data-i18n="nav.profile">Interests</a>
+      <a href="#/settings" data-i18n="nav.settings">Settings</a>
+      <a href="#/status"   data-i18n="nav.status">Status</a>
     </nav>
-    <span id="tier" class="tier" title="Capability tier">&nbsp;</span>
+    <a class="tier" id="tier" href="#/status" title=""></a>
   </header>
 
-  <main id="view" aria-live="polite"></main>
+  <main id="view" tabindex="-1"></main>
 
-  <footer class="foot">
-    <span id="status-line">&nbsp;</span>
+  <footer class="foot" id="foot" hidden>
+    <span id="status-line"></span>
   </footer>
+
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
 
   <script src="/app.js" type="module"></script>
 </body>
