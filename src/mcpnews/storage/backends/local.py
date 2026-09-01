@@ -6,13 +6,14 @@ assumes POSIX semantics beyond what pathlib already normalises.
 """
 from __future__ import annotations
 
+import contextlib
 import gzip
 import json
 import os
 import shutil
 import tempfile
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Iterable
 
 from mcpnews.storage.base import BlobStorage, StorageError, Usage, normalise_key, register
 
@@ -94,18 +95,14 @@ class LocalStorage(BlobStorage):
             for p in self.root.rglob("*"):
                 if p.is_file():
                     blobs += 1
-                    try:
+                    with contextlib.suppress(OSError):
                         total += p.stat().st_size
-                    except OSError:
-                        pass
         return Usage(blobs=blobs, bytes=total)
 
     def describe(self) -> dict:
         free = None
-        try:
+        with contextlib.suppress(OSError):
             free = shutil.disk_usage(self.root).free
-        except OSError:
-            pass
         return {"kind": self.kind, "location": str(self.root), "free_bytes": free}
 
     def health(self) -> tuple[bool, str]:

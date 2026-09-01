@@ -7,9 +7,10 @@ changed in the dashboard takes effect without a restart.
 """
 from __future__ import annotations
 
+import contextlib
 import logging
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from mcpnews import __version__, paths
 from mcpnews.archive import Archive
@@ -39,7 +40,7 @@ class App:
 
     # ---- construction ----------------------------------------------------
     @classmethod
-    def create(cls) -> "App":
+    def create(cls) -> App:
         settings = settings_cfg.load()
         store = open_store(settings)
         archive = Archive(open_storage(settings))
@@ -52,10 +53,10 @@ class App:
         return app
 
     def close(self) -> None:
-        try:
+        # Closing a store that is already closed, or was never opened, is not an
+        # error worth propagating out of a shutdown path.
+        with contextlib.suppress(Exception):
             self.store.close()
-        except Exception:  # noqa: BLE001
-            pass
 
     # ---- reloading -------------------------------------------------------
     def reload_settings(self) -> None:
@@ -104,7 +105,7 @@ class App:
             "database": str(self.settings.db_path),
             "archive": archive_desc,
             "config_dir": str(paths.config_dir()),
-            "checked_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+            "checked_at": datetime.now(UTC).isoformat(timespec="seconds"),
         }
 
 

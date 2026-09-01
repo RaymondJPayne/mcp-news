@@ -1,0 +1,16 @@
+.git
+.gitignore
+.venv
+data
+archive
+tests
+*.sqlite*
+__pycache__
+.pytest_cache
+.ruff_cache
+*.egg-info
+.env
+config/profile.yaml
+config/providers.yaml
+config/settings.yaml
+config/sources/local.yaml

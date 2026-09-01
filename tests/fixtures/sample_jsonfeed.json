@@ -1,0 +1,20 @@
+{
+  "version": "https://jsonfeed.org/version/1.1",
+  "title": "Example JSON Feed",
+  "items": [
+    {
+      "id": "1",
+      "url": "https://example.com/a?fbclid=abc",
+      "title": "Lithography supply chain under pressure",
+      "date_published": "2026-09-01T05:00:00Z",
+      "content_text": "Suppliers of lithography equipment report new export control checks."
+    },
+    {
+      "id": "2",
+      "url": "https://example.com/b",
+      "title": "Unrelated item",
+      "date_published": "2026-08-31T05:00:00Z",
+      "summary": "Nothing relevant."
+    }
+  ]
+}

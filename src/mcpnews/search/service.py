@@ -49,7 +49,7 @@ async def search(app, query: str, *, limit: int = 20, days: int | None = 90,
         vectors, _slot, model_id = await app.providers.embed([query])
     except NoProviderAvailable:
         return SearchResult(keyword_hits[:limit], "keyword", note_key="err.provider.unreachable")
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         log.info("semantic search unavailable: %s", exc)
         return SearchResult(keyword_hits[:limit], "keyword", note_key="err.provider.unreachable")
 

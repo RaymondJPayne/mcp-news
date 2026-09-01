@@ -58,7 +58,7 @@ OAUTH BACKENDS (Dropbox, Google Drive, OneDrive)
 """
 from __future__ import annotations
 
-from typing import Iterable
+from collections.abc import Iterable
 
 from mcpnews.storage.base import BlobStorage, Usage, register
 

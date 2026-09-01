@@ -8,10 +8,12 @@ from __future__ import annotations
 import json
 import sqlite3
 import threading
-from datetime import datetime, timedelta, timezone
+from collections.abc import Iterable
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any
 
+from mcpnews.ingest.simhash import DEFAULT_MAX_DISTANCE
 from mcpnews.store.base import (
     ENRICHMENT_CAPABILITIES,
     ArticleRecord,
@@ -22,6 +24,7 @@ from mcpnews.store.base import (
 )
 
 SCHEMA_VERSION = 1
+_BITS = 64
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS meta (
@@ -78,8 +81,13 @@ CREATE TABLE IF NOT EXISTS articles (
     published_at     TEXT,
     fetched_at       TEXT NOT NULL,
     simhash          INTEGER NOT NULL DEFAULT 0,
+    -- Eight 8-bit bands of the fingerprint. Two hashes within seven bits of each
+    -- other must share at least one whole band, so an OR over these eight indexed
+    -- columns finds every near-duplicate the threshold admits.
     b0 INTEGER NOT NULL DEFAULT 0, b1 INTEGER NOT NULL DEFAULT 0,
     b2 INTEGER NOT NULL DEFAULT 0, b3 INTEGER NOT NULL DEFAULT 0,
+    b4 INTEGER NOT NULL DEFAULT 0, b5 INTEGER NOT NULL DEFAULT 0,
+    b6 INTEGER NOT NULL DEFAULT 0, b7 INTEGER NOT NULL DEFAULT 0,
     cluster_id       INTEGER,
     interest_score   REAL NOT NULL DEFAULT 0,
     matched_rules    TEXT NOT NULL DEFAULT '[]',
@@ -99,6 +107,10 @@ CREATE INDEX IF NOT EXISTS idx_articles_b0 ON articles(b0);
 CREATE INDEX IF NOT EXISTS idx_articles_b1 ON articles(b1);
 CREATE INDEX IF NOT EXISTS idx_articles_b2 ON articles(b2);
 CREATE INDEX IF NOT EXISTS idx_articles_b3 ON articles(b3);
+CREATE INDEX IF NOT EXISTS idx_articles_b4 ON articles(b4);
+CREATE INDEX IF NOT EXISTS idx_articles_b5 ON articles(b5);
+CREATE INDEX IF NOT EXISTS idx_articles_b6 ON articles(b6);
+CREATE INDEX IF NOT EXISTS idx_articles_b7 ON articles(b7);
 
 -- Vectors record their model. Vectors from different models are not comparable,
 -- so the query side always filters on model_id rather than mixing spaces.
@@ -130,17 +142,37 @@ END;
 
 
 def _now() -> str:
-    return datetime.now(timezone.utc).isoformat(timespec="seconds")
+    return datetime.now(UTC).isoformat(timespec="seconds")
 
 
 def _iso_days_ago(days: int) -> str:
-    return (datetime.now(timezone.utc) - timedelta(days=days)).isoformat(timespec="seconds")
+    return (datetime.now(UTC) - timedelta(days=days)).isoformat(timespec="seconds")
 
 
-def _bands(simhash: int) -> tuple[int, int, int, int]:
-    """Four 16-bit bands. Two hashes within a few bits almost always share one."""
+def _signed(value: int) -> int:
+    """SQLite INTEGER is signed 64-bit; a fingerprint is unsigned 64-bit.
+
+    Storing the raw value overflows. Reinterpreting the same bits as signed is
+    lossless and keeps Hamming distance intact, which is all we compare on.
+    """
+    value &= 0xFFFFFFFFFFFFFFFF
+    return value - (1 << 64) if value >= (1 << 63) else value
+
+
+def _unsigned(value: int) -> int:
+    return value & 0xFFFFFFFFFFFFFFFF
+
+
+#: Eight bands of eight bits. By the pigeonhole principle two fingerprints that
+#: differ in at most seven bits share at least one identical band, so blocking on
+#: these loses no candidate the distance threshold would have accepted.
+_BAND_COUNT = 8
+_BAND_BITS = _BITS // _BAND_COUNT
+
+
+def _bands(simhash: int) -> tuple[int, ...]:
     h = simhash & 0xFFFFFFFFFFFFFFFF
-    return (h & 0xFFFF, (h >> 16) & 0xFFFF, (h >> 32) & 0xFFFF, (h >> 48) & 0xFFFF)
+    return tuple((h >> (i * _BAND_BITS)) & 0xFF for i in range(_BAND_COUNT))
 
 
 def _hamming(a: int, b: int) -> int:
@@ -311,20 +343,22 @@ class SQLiteStore(ArticleStore):
         return int(row["id"]) if row else None
 
     def insert_article(self, a: ArticleRecord) -> int:
-        b0, b1, b2, b3 = _bands(a.simhash)
+        bands = _bands(a.simhash)
+        columns = ["url", "original_url", "domain", "source_id", "title", "title_translated",
+                   "summary", "body", "lang", "published_at", "fetched_at", "simhash",
+                   *[f"b{i}" for i in range(_BAND_COUNT)],
+                   "cluster_id", "interest_score", "matched_rules", "scored_at", "archive_ref",
+                   *ENRICHMENT_CAPABILITIES]
+        values = [a.url, a.original_url, a.domain, a.source_id, a.title, a.title_translated,
+                  a.summary, a.body, a.lang, a.published_at, a.fetched_at or _now(),
+                  _signed(a.simhash), *bands,
+                  a.cluster_id, a.interest_score, json.dumps(a.matched_rules), a.scored_at,
+                  a.archive_ref,
+                  *[a.enrichment.get(c, "pending") for c in ENRICHMENT_CAPABILITIES]]
+        sql = (f"INSERT INTO articles({','.join(columns)})"
+               f" VALUES({','.join('?' * len(columns))})")
         with self._write_lock:
-            cur = self._conn.execute(
-                "INSERT INTO articles(url,original_url,domain,source_id,title,title_translated,"
-                "summary,body,lang,published_at,fetched_at,simhash,b0,b1,b2,b3,cluster_id,"
-                "interest_score,matched_rules,scored_at,archive_ref,embedded,translated,"
-                "contextual,entities) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
-                (a.url, a.original_url, a.domain, a.source_id, a.title, a.title_translated,
-                 a.summary, a.body, a.lang, a.published_at, a.fetched_at or _now(),
-                 a.simhash & 0xFFFFFFFFFFFFFFFF, b0, b1, b2, b3, a.cluster_id,
-                 a.interest_score, json.dumps(a.matched_rules), a.scored_at, a.archive_ref,
-                 a.enrichment.get("embedded", "pending"), a.enrichment.get("translated", "pending"),
-                 a.enrichment.get("contextual", "pending"),
-                 a.enrichment.get("entities", "pending")))
+            cur = self._conn.execute(sql, values)
             article_id = int(cur.lastrowid)
             if a.cluster_id is None:
                 self._conn.execute("UPDATE articles SET cluster_id=? WHERE id=?",
@@ -344,7 +378,7 @@ class SQLiteStore(ArticleStore):
             title_translated=row["title_translated"], summary=row["summary"],
             body=row["body"] if with_body and "body" in keys else "",
             lang=row["lang"], published_at=row["published_at"], fetched_at=row["fetched_at"],
-            simhash=row["simhash"] if "simhash" in keys else 0,
+            simhash=_unsigned(int(row["simhash"])) if "simhash" in keys else 0,
             cluster_id=row["cluster_id"], interest_score=row["interest_score"],
             matched_rules=json.loads(row["matched_rules"] or "[]"),
             scored_at=row["scored_at"], archive_ref=row["archive_ref"],
@@ -370,17 +404,19 @@ class SQLiteStore(ArticleStore):
                 f"UPDATE articles SET {capability}=? WHERE id=?", (state, article_id))
 
     def near_duplicate(self, simhash: int, *, within_days: int = 7,
-                       max_distance: int = 3) -> int | None:
+                       max_distance: int | None = None) -> int | None:
         if not simhash:
             return None
-        b0, b1, b2, b3 = _bands(simhash)
+        max_distance = DEFAULT_MAX_DISTANCE if max_distance is None else max_distance
+        bands = _bands(simhash)
         since = _iso_days_ago(within_days)
+        where = " OR ".join(f"b{i}=?" for i in range(_BAND_COUNT))
         rows = self._conn.execute(
             "SELECT id, simhash, cluster_id FROM articles"
-            " WHERE fetched_at >= ? AND (b0=? OR b1=? OR b2=? OR b3=?) LIMIT 500",
-            (since, b0, b1, b2, b3))
+            f" WHERE fetched_at >= ? AND ({where}) LIMIT 3000",
+            (since, *bands))
         for row in rows:
-            if _hamming(int(row["simhash"]), simhash) <= max_distance:
+            if _hamming(_unsigned(int(row["simhash"])), simhash) <= max_distance:
                 return int(row["cluster_id"] or row["id"])
         return None
 
@@ -399,7 +435,7 @@ class SQLiteStore(ArticleStore):
     # ---- reading ---------------------------------------------------------
     def feed(self, *, hours: int, limit: int, min_score: float,
              half_life_h: float | None) -> list[ArticleRecord]:
-        since = (datetime.now(timezone.utc) - timedelta(hours=hours)).isoformat(timespec="seconds")
+        since = (datetime.now(UTC) - timedelta(hours=hours)).isoformat(timespec="seconds")
         rows = self._conn.execute(
             "SELECT id,url,original_url,domain,source_id,title,title_translated,summary,"
             " lang,published_at,fetched_at,cluster_id,interest_score,matched_rules,scored_at,"
@@ -424,10 +460,10 @@ class SQLiteStore(ArticleStore):
         match = _fts_query(query)
         if not match:
             return []
-        sql = ["SELECT a.*, bm25(articles_fts) AS rel,"
-               " snippet(articles_fts, 1, '', '', '…', 18) AS snip"
-               " FROM articles_fts JOIN articles a ON a.id = articles_fts.rowid"
-               " WHERE articles_fts MATCH ?"]
+        sql = [("SELECT a.*, bm25(articles_fts) AS rel,"
+                " snippet(articles_fts, 1, '', '', '…', 18) AS snip"
+                " FROM articles_fts JOIN articles a ON a.id = articles_fts.rowid"
+                " WHERE articles_fts MATCH ?")]
         params: list[Any] = [match]
         if days:
             sql.append(" AND COALESCE(a.published_at, a.fetched_at) >= ?")
@@ -488,8 +524,8 @@ class SQLiteStore(ArticleStore):
         import math
 
         params: list[Any] = [model_id]
-        sql = ["SELECT v.article_id, v.vector FROM article_vectors v"
-               " JOIN articles a ON a.id = v.article_id WHERE v.model_id = ?"]
+        sql = [("SELECT v.article_id, v.vector FROM article_vectors v"
+                " JOIN articles a ON a.id = v.article_id WHERE v.model_id = ?")]
         if days:
             sql.append(" AND COALESCE(a.published_at, a.fetched_at) >= ?")
             params.append(_iso_days_ago(days))
@@ -504,7 +540,7 @@ class SQLiteStore(ArticleStore):
             other.frombytes(row["vector"])
             if len(other) != len(vector):
                 continue          # a different space; never mix them
-            dot = sum(a * b for a, b in zip(vector, other))
+            dot = sum(a * b for a, b in zip(vector, other, strict=True))
             norm = math.sqrt(sum(b * b for b in other)) or 1.0
             scored.append((int(row["article_id"]), dot / (qnorm * norm)))
         scored.sort(key=lambda t: t[1], reverse=True)

@@ -4,8 +4,9 @@ The application talks only to ChatProvider and EmbedProvider. Every engine —
 local or cloud — is an adapter behind one of them. See docs/PROVIDERS.md.
 """
 from __future__ import annotations
+
 from abc import ABC, abstractmethod
-from typing import Any, Callable
+from collections.abc import Callable
 
 _REGISTRY: dict[str, type] = {}
 

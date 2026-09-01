@@ -51,7 +51,7 @@ class Fetcher:
     _robots: dict[str, RobotFileParser | None] = field(
         default_factory=dict, init=False, repr=False)
 
-    async def __aenter__(self) -> "Fetcher":
+    async def __aenter__(self) -> Fetcher:
         self._client = httpx.AsyncClient(
             follow_redirects=True,
             timeout=httpx.Timeout(self.timeout_s),

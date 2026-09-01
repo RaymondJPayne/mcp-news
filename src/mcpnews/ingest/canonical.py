@@ -22,6 +22,10 @@ _TRACKING_EXACT = {
 _TRACKING_PREFIXES = ("utm_", "pk_", "piwik_", "matomo_", "hsa_", "ito", "ir_")
 
 _DEFAULT_PORTS = {"http": "80", "https": "443"}
+#: Anything with a scheme we do not fetch. Caught before the https:// default is
+#: applied, because "mailto:a@example.com" otherwise parses as user info on a
+#: perfectly plausible host.
+_HAS_SCHEME = re.compile(r"^[A-Za-z][A-Za-z0-9+.\-]*:")
 _INDEX_SUFFIX = re.compile(r"/(index|default)\.(html?|php|aspx?)$", re.IGNORECASE)
 
 
@@ -39,7 +43,9 @@ def canonicalise(url: str) -> str:
         raise ValueError("empty url")
     if url.startswith("//"):
         url = "https:" + url
-    if "://" not in url:
+    elif "://" not in url:
+        if _HAS_SCHEME.match(url):
+            raise ValueError(f"unsupported scheme in {url!r}")
         url = "https://" + url
 
     parts = urlsplit(url)
@@ -48,7 +54,7 @@ def canonicalise(url: str) -> str:
         raise ValueError(f"unsupported scheme {scheme!r}")
 
     host = (parts.hostname or "").lower().rstrip(".")
-    if not host or "." not in host and host != "localhost":
+    if not host or ("." not in host and host != "localhost"):
         raise ValueError(f"unusable host in {url!r}")
     # www is an alias for the apex in practice for every publisher we collect from.
     if host.startswith("www."):

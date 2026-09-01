@@ -68,14 +68,14 @@ async def run_embeddings(store: ArticleStore, providers: ProviderRegistry, *,
         except NoProviderAvailable:
             report.note_key = "err.provider.unreachable"
             break
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             report.errors.append(str(exc)[:200])
             for a in chunk:
                 store.set_enrichment(a.id, "embedded", "failed")
                 report.failed += 1
             continue
         report.model_id = model_id or report.model_id
-        for article, vector in zip(chunk, vectors):
+        for article, vector in zip(chunk, vectors, strict=False):
             try:
                 store.save_vector(article.id, model_id, vector)
                 store.set_enrichment(article.id, "embedded", "done")

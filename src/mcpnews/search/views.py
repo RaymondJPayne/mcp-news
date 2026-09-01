@@ -7,7 +7,7 @@ re-ranking possible at all — see docs/ARCHITECTURE.md.
 """
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 #: A half-life of zero (or None) means no decay: the historical lens.
 NO_DECAY = 0.0
@@ -16,7 +16,7 @@ NO_DECAY = 0.0
 def age_hours(published_at: str | datetime | None, *, now: datetime | None = None) -> float:
     if published_at is None:
         return 0.0
-    now = now or datetime.now(timezone.utc)
+    now = now or datetime.now(UTC)
     if isinstance(published_at, str):
         try:
             dt = datetime.fromisoformat(published_at.replace("Z", "+00:00"))
@@ -25,7 +25,7 @@ def age_hours(published_at: str | datetime | None, *, now: datetime | None = Non
     else:
         dt = published_at
     if dt.tzinfo is None:
-        dt = dt.replace(tzinfo=timezone.utc)
+        dt = dt.replace(tzinfo=UTC)
     return max(0.0, (now - dt).total_seconds() / 3600.0)
 
 

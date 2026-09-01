@@ -132,7 +132,8 @@ def load() -> Settings:
         user_agent=str(col.get("user_agent") or base.collection.user_agent),
     )
     st = raw.get("store") or {}
-    s.store = StoreSettings(backend=str(st.get("backend") or "sqlite"), dsn=str(st.get("dsn") or ""))
+    s.store = StoreSettings(backend=str(st.get("backend") or "sqlite"),
+                            dsn=str(st.get("dsn") or ""))
     bl = raw.get("blob") or {}
     s.blob = BlobSettings(
         backend=str(bl.get("backend") or "local"),

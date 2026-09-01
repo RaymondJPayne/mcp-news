@@ -56,7 +56,7 @@ def serve(
     # so binding to all interfaces there is the only thing that works. The port is
     # still published to 127.0.0.1 on the host by compose.
     if os.path.exists("/.dockerenv") and host == "127.0.0.1":
-        host = "0.0.0.0"  # noqa: S104
+        host = "0.0.0.0"
     uvicorn.run(create_app(collector_loop=all), host=host, port=resolved_port,
                 log_level=os.environ.get("MCPNEWS_LOG_LEVEL", "info").lower())
 

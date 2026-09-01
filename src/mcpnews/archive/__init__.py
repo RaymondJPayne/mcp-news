@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from mcpnews.storage.base import BlobStorage, StorageError
 
@@ -21,7 +21,7 @@ def _month_of(published_at: str | None) -> str:
             return f"{dt.year:04d}/{dt.month:02d}"
         except ValueError:
             pass
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     return f"{now.year:04d}/{now.month:02d}"
 
 
@@ -55,7 +55,7 @@ class Archive:
             "lang": lang,
             "published_at": published_at,
             "source_id": source_id,
-            "archived_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+            "archived_at": datetime.now(UTC).isoformat(timespec="seconds"),
         }, ensure_ascii=False).encode("utf-8")
         try:
             return self.storage.put(key, payload, content_type="application/json")

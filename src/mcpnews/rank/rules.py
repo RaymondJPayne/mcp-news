@@ -11,9 +11,9 @@ from __future__ import annotations
 
 import re
 from abc import ABC, abstractmethod
-from typing import Callable
+from collections.abc import Callable
 
-_REGISTRY: dict[str, type["RuleType"]] = {}
+_REGISTRY: dict[str, type[RuleType]] = {}
 
 
 def register(name: str) -> Callable[[type], type]:
@@ -23,7 +23,7 @@ def register(name: str) -> Callable[[type], type]:
     return deco
 
 
-def get_rule_type(name: str) -> type["RuleType"]:
+def get_rule_type(name: str) -> type[RuleType]:
     if name not in _REGISTRY:
         raise KeyError(f"unknown rule type {name!r}; registered: {sorted(_REGISTRY)}")
     return _REGISTRY[name]

@@ -11,7 +11,6 @@ or the CLI, where a human sees them.
 from __future__ import annotations
 
 import asyncio
-from typing import Any
 
 from mcpnews import __version__
 from mcpnews.providers.chain import NoProviderAvailable
@@ -31,8 +30,18 @@ _NOT_YET = ("Not implemented in this release. Entity extraction and change "
             "detection land in a later phase; see docs/ROADMAP.md.")
 
 
+def _mcp_server_class():
+    """The SDK renamed FastMCP to MCPServer in version 2. Support both."""
+    try:
+        from mcp.server.mcpserver import MCPServer
+        return MCPServer
+    except ImportError:  # pragma: no cover - only on the older SDK
+        from mcp.server.fastmcp import FastMCP
+        return FastMCP
+
+
 def _server(ctx: App):
-    from mcp.server.mcpserver import MCPServer
+    MCPServer = _mcp_server_class()
 
     server = MCPServer(name="mcp-news", version=__version__, instructions=INSTRUCTIONS)
 
@@ -166,7 +175,7 @@ def _server(ctx: App):
         server.remove_tool("status_")
         server.add_tool(status_, name="status",
                         description="Corpus size, tier, provider health and queue depth.")
-    except Exception:  # noqa: BLE001 - older SDKs expose a different registration API
+    except Exception:
         pass
 
     return server

@@ -1,5 +1,7 @@
 """Container healthcheck. Exits 0 when the API answers."""
-import sys, urllib.request
+import sys
+import urllib.request
+
 
 def main() -> int:
     try:

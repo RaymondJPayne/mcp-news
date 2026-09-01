@@ -148,5 +148,5 @@ class ProviderRegistry:
             return False
         try:
             return bool(await provider.health())
-        except Exception:  # noqa: BLE001
+        except Exception:
             return False

@@ -15,12 +15,13 @@ Two boundaries are load-bearing:
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
-from typing import Any, Callable, Iterable
+from typing import Any
 
 ENRICHMENT_CAPABILITIES = ("embedded", "translated", "contextual", "entities")
 
-_REGISTRY: dict[str, type["ArticleStore"]] = {}
+_REGISTRY: dict[str, type[ArticleStore]] = {}
 
 
 def register(name: str) -> Callable[[type], type]:
@@ -30,7 +31,7 @@ def register(name: str) -> Callable[[type], type]:
     return deco
 
 
-def get_backend(name: str) -> type["ArticleStore"]:
+def get_backend(name: str) -> type[ArticleStore]:
     if name not in _REGISTRY:
         raise KeyError(f"unknown store backend {name!r}; registered: {sorted(_REGISTRY)}")
     return _REGISTRY[name]
@@ -106,7 +107,7 @@ class ArticleRecord:
     title_translated: str | None = None
     id: int | None = None
     enrichment: dict[str, str] = field(
-        default_factory=lambda: {c: "pending" for c in ENRICHMENT_CAPABILITIES})
+        default_factory=lambda: dict.fromkeys(ENRICHMENT_CAPABILITIES, "pending"))
 
     def to_dict(self, *, include_body: bool = False) -> dict:
         d = {
@@ -194,7 +195,7 @@ class ArticleStore(ABC):
 
     @abstractmethod
     def near_duplicate(self, simhash: int, *, within_days: int = 7,
-                       max_distance: int = 3) -> int | None:
+                       max_distance: int | None = None) -> int | None:
         """The id of an existing near-identical article, or None."""
 
     @abstractmethod

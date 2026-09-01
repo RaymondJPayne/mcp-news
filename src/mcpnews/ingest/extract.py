@@ -15,11 +15,14 @@ _SCRIPTISH = re.compile(
     r"<(script|style|noscript|template|svg|iframe|form|nav|aside|footer|header)\b.*?</\1\s*>",
     re.IGNORECASE | re.DOTALL)
 _COMMENT = re.compile(r"<!--.*?-->", re.DOTALL)
+#: Closing a block element ends a paragraph; a <br> only ends a line.
 _BLOCK_END = re.compile(
-    r"</(p|div|section|article|h[1-6]|li|ul|ol|table|tr|blockquote|pre|br)\s*>|<br\s*/?>",
+    r"</(p|div|section|article|h[1-6]|li|ul|ol|table|tr|blockquote|pre)\s*>",
     re.IGNORECASE)
+_LINE_END = re.compile(r"<br\s*/?>", re.IGNORECASE)
 _TAG = re.compile(r"<[^>]+>")
-_WS = re.compile(r"[ \t ]+")
+#: Ordinary space, tab and the non-breaking space that feeds are full of.
+_WS = re.compile("[ \\t\\u00a0]+")
 _BLANKS = re.compile(r"\n{3,}")
 _TITLE = re.compile(r"<title[^>]*>(.*?)</title>", re.IGNORECASE | re.DOTALL)
 _LANG = re.compile(r"<html[^>]*\blang\s*=\s*[\"']([A-Za-z-]{2,8})[\"']", re.IGNORECASE)
@@ -30,14 +33,15 @@ _MIN_BODY_CHARS = 200
 
 try:  # pragma: no cover - exercised only where the optional dependency exists
     import trafilatura as _trafilatura
-except Exception:  # noqa: BLE001
+except Exception:
     _trafilatura = None
 
 
 def strip_html(fragment: str) -> str:
     text = _COMMENT.sub(" ", fragment or "")
     text = _SCRIPTISH.sub(" ", text)
-    text = _BLOCK_END.sub("\n", text)
+    text = _BLOCK_END.sub("\n\n", text)
+    text = _LINE_END.sub("\n", text)
     text = _TAG.sub(" ", text)
     text = html.unescape(text)
     text = unicodedata.normalize("NFC", text)
@@ -81,7 +85,7 @@ def extract(page_html: str, *, url: str | None = None) -> dict[str, str]:
             body = _trafilatura.extract(
                 page_html, url=url, include_comments=False, include_tables=False,
                 favor_precision=True) or ""
-        except Exception:  # noqa: BLE001  - never let extraction break collection
+        except Exception:
             body = ""
     if not body:
         body = _fallback_body(page_html)

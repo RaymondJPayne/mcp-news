@@ -13,8 +13,9 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
-from typing import Any, Awaitable, Callable, TypeVar
+from typing import Any, TypeVar
 
 from mcpnews.providers.errors import ProviderRequestError, ProviderUnavailable
 
@@ -44,7 +45,7 @@ class FailoverPolicy:
     require_confirmation_for_paid_failover: bool = False
 
     @classmethod
-    def from_dict(cls, raw: dict | None) -> "FailoverPolicy":
+    def from_dict(cls, raw: dict | None) -> FailoverPolicy:
         raw = raw or {}
         return cls(
             max_attempts_per_slot=int(raw.get("max_attempts_per_slot", 2)),
@@ -164,7 +165,7 @@ class Chain:
                 except ProviderRequestError:
                     # Our bug. Failing over would repeat it and cost money twice.
                     raise
-                except (ProviderUnavailable, asyncio.TimeoutError, OSError) as exc:
+                except (TimeoutError, ProviderUnavailable, OSError) as exc:
                     log.info("chain %s slot %s attempt %d failed: %s",
                              self.name, slot, attempt, exc)
                     if attempt < self.policy.max_attempts_per_slot:
@@ -188,7 +189,7 @@ class Chain:
                 continue
             try:
                 ok = await provider.health()
-            except Exception:  # noqa: BLE001
+            except Exception:
                 ok = False
             if ok:
                 breaker.record_success()

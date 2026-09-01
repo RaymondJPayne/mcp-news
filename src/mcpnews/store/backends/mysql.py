@@ -24,3 +24,11 @@ class MySQLStore(ArticleStore):
 
     def __getattr__(self, item: str):
         raise NotImplementedError(_MESSAGE)
+
+
+# Declared complete on purpose. The constructor never returns, so the missing
+# methods are unreachable; clearing the abstract set means a reader who selects
+# this backend gets the sentence above rather than a TypeError listing thirty
+# method names. ABCMeta populates this after the class body, so it is cleared
+# here rather than inside it.
+MySQLStore.__abstractmethods__ = frozenset()

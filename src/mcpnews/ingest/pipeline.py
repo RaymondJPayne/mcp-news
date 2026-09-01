@@ -14,14 +14,14 @@ from __future__ import annotations
 import asyncio
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from mcpnews.archive import Archive
 from mcpnews.config.profile import Profile
 from mcpnews.config.settings import Settings
 from mcpnews.ingest.canonical import canonicalise, domain_of
 from mcpnews.ingest.extract import extract, summarise
-from mcpnews.ingest.fetcher import FetchError, Fetcher
+from mcpnews.ingest.fetcher import Fetcher, FetchError
 from mcpnews.ingest.simhash import simhash
 from mcpnews.rank.scorer import CompiledProfile
 from mcpnews.sources.base import CandidateItem
@@ -37,7 +37,7 @@ _BACKOFF_MAX_MIN = 1440
 
 
 def _now() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 def _iso(dt: datetime) -> str:
@@ -111,7 +111,7 @@ class Collector:
         try:
             adapter = adapter_for(source.kind)
             result = await adapter.fetch(source, state, fetcher)
-        except (FetchError, NotImplementedError, KeyError, Exception) as exc:  # noqa: BLE001
+        except (FetchError, NotImplementedError, KeyError, Exception) as exc:
             # A single broken feed must never end a collection run.
             state.consecutive_failures += 1
             state.last_error = f"{type(exc).__name__}: {exc}"[:500]
@@ -129,7 +129,7 @@ class Collector:
                 report.candidates += 1
                 try:
                     outcome = await self._store_candidate(candidate, source, fetcher)
-                except Exception as exc:  # noqa: BLE001
+                except Exception as exc:
                     log.debug("candidate failed (%s): %s", candidate.url, exc)
                     continue
                 if outcome == "new":
@@ -205,7 +205,7 @@ class Collector:
         )
         try:
             self.store.insert_article(record)
-        except Exception as exc:  # noqa: BLE001 - a racing insert on the same URL
+        except Exception as exc:
             if "UNIQUE" in str(exc).upper():
                 return "seen"
             raise

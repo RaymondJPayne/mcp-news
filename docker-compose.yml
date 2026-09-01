@@ -1,29 +1,44 @@
 name: mcp-news
 
+# A clean clone plus `docker compose up` reaches a working first-run wizard.
+# Nothing here needs editing first: there is no required .env, no required
+# profile file, and no environment variable on the happy path. Everything is
+# configured in the browser at http://localhost:8378.
+
 services:
   node:
     build: { context: ., dockerfile: docker/Dockerfile }
     image: mcp-news:local
     restart: unless-stopped
-    env_file: [.env]
+    # Optional. Providers, if you configure any, read their keys from here.
+    # Marked not required so a clean clone starts without creating it first.
+    env_file:
+      - path: .env
+        required: false
     environment:
+      MCPNEWS_CONFIG_DIR: /app/config
       MCPNEWS_DATA_DIR: /data
       MCPNEWS_ARCHIVE_DIR: /archive
+      MCPNEWS_WEB_DIR: /app/web
     volumes:
-      - ./config:/app/config:ro          # your profile, providers and sources
-      - mcpnews_data:/data               # database
-      - mcpnews_archive:/archive         # full-text archive
+      # Read-write on purpose: the dashboard is the primary editor of your
+      # settings, profile and source list, and it writes them here as plain
+      # YAML you can read, copy and keep under version control.
+      - ./config:/app/config
+      # Bind mounts rather than named volumes so you can find your own data in
+      # a file manager. To keep it somewhere else, change the left-hand side to
+      # any path on your machine — D:\news\data, /Volumes/big/news — and the
+      # Storage step of the wizard will accept /data and /archive as before.
+      - ./data:/data
+      - ./archive:/archive
     ports:
+      # Bound to localhost by default. Put it behind your own reverse proxy if
+      # you want it on the network; this project ships no authentication and
+      # makes no claim to any.
       - "127.0.0.1:${MCPNEWS_PORT:-8378}:8378"
-    # Bound to localhost by default. Put it behind your own reverse proxy if you
-    # want it on the network; this project ships no auth and makes no claim to.
     healthcheck:
       test: ["CMD", "python", "-m", "mcpnews.healthcheck"]
       interval: 60s
       timeout: 10s
       retries: 3
       start_period: 30s
-
-volumes:
-  mcpnews_data:
-  mcpnews_archive:

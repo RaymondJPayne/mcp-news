@@ -6,12 +6,12 @@ between two different date formats in SQL is a silent bug.
 """
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from email.utils import parsedate_to_datetime
 
 try:
     from dateutil import parser as _dateutil
-except Exception:  # noqa: BLE001  - optional; the two stdlib paths cover most feeds
+except Exception:
     _dateutil = None
 
 
@@ -25,7 +25,7 @@ def parse_date(value: str | None) -> str | None:
     # Numeric epoch, used by a few JSON APIs.
     if value.isdigit() and len(value) in (10, 13):
         seconds = int(value) / (1000 if len(value) == 13 else 1)
-        return datetime.fromtimestamp(seconds, tz=timezone.utc).isoformat(timespec="seconds")
+        return datetime.fromtimestamp(seconds, tz=UTC).isoformat(timespec="seconds")
 
     for attempt in (_iso, _rfc822, _loose):
         got = attempt(value)
@@ -36,8 +36,8 @@ def parse_date(value: str | None) -> str | None:
 
 def _finish(dt: datetime) -> str:
     if dt.tzinfo is None:
-        dt = dt.replace(tzinfo=timezone.utc)
-    return dt.astimezone(timezone.utc).isoformat(timespec="seconds")
+        dt = dt.replace(tzinfo=UTC)
+    return dt.astimezone(UTC).isoformat(timespec="seconds")
 
 
 def _iso(value: str) -> str | None:
@@ -64,4 +64,4 @@ def _loose(value: str) -> str | None:
 
 
 def now_iso() -> str:
-    return datetime.now(timezone.utc).isoformat(timespec="seconds")
+    return datetime.now(UTC).isoformat(timespec="seconds")

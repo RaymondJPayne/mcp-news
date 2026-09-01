@@ -8,22 +8,27 @@ license = { text = "AGPL-3.0-or-later" }
 authors = [{ name = "Raymond J. Payne" }]
 keywords = ["news", "rss", "mcp", "aggregator", "self-hosted"]
 
-# Deliberately small. Everything optional is optional.
+# Deliberately small. Everything optional is optional, and every line here has
+# to justify itself against the size of the image and the surface it adds.
 dependencies = [
-  "httpx[http2]>=0.27",
-  "pyyaml>=6.0",
-  "feedparser>=6.0",
-  "trafilatura>=1.12",     # article text extraction
-  "python-dateutil>=2.9",
-  "fastapi>=0.115",
-  "uvicorn[standard]>=0.30",
-  "pydantic>=2.8",
-  "mcp>=1.2",
-  "typer>=0.12",
-  "jsonschema>=4.23",
+  "httpx[http2]>=0.27",       # the only HTTP client, used by fetching and providers
+  "pyyaml>=6.0",              # the configuration format the reader can read
+  "python-dateutil>=2.9",     # the long tail of date formats feeds actually emit
+  "fastapi>=0.115",           # the JSON API
+  "uvicorn[standard]>=0.30",  # the server that runs it
+  "pydantic>=2.8",            # request validation, already required by fastapi
+  "mcp>=2.0",                 # the MCP server SDK
+  "typer>=0.12",              # the CLI
+  "jsonschema>=4.23",         # validates source bundles at startup and in CI
 ]
+# Feed parsing and article extraction are deliberately absent: RSS, Atom, JSON
+# Feed and readable-text extraction are implemented against the standard library
+# in sources/adapters/ and ingest/extract.py. That keeps the container small and
+# the test suite free of a network and a heavyweight parser. Installing
+# trafilatura below improves extraction quality; nothing requires it.
 
 [project.optional-dependencies]
+extract = ["trafilatura>=1.12"]   # better article text extraction when present
 vectors = ["sqlite-vec>=0.1.6", "numpy>=1.26"]
 postgres = ["psycopg[binary,pool]>=3.2"]
 qdrant = ["qdrant-client>=1.11"]
@@ -46,6 +51,24 @@ packages = ["src/mcpnews"]
 [tool.ruff]
 line-length = 100
 target-version = "py312"
+
+# Pinned explicitly rather than inherited, so "ruff check ." means the same thing
+# in six months as it does today.
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "UP", "B", "C4", "SIM", "DTZ", "ISC", "PIE", "RUF"]
+ignore = [
+  # The file-mode bit is not meaningful on every filesystem this repo is cloned to.
+  "EXE002",
+  # Sorting __all__ and similar literals alphabetically loses a deliberate order.
+  "RUF022", "RUF023",
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Tests say what they mean; a long assertion message is worth the line.
+"tests/*" = ["E501"]
+# typer's entire interface is a call in an argument default. That is the library,
+# not a mistake in this file.
+"src/mcpnews/cli.py" = ["B008"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

@@ -29,7 +29,13 @@ _NS = {
     "media": "http://search.yahoo.com/mrss/",
 }
 _DECL = re.compile(r"^\s*<\?xml[^>]*\?>")
-_DOCTYPE = re.compile(r"<!DOCTYPE[^>]*>", re.IGNORECASE)
+#: Including an internal subset, which is where entity declarations hide and
+#: which contains ">" characters that a naive pattern stops at.
+_DOCTYPE = re.compile(r"<!DOCTYPE[^>\[]*(?:\[.*?\])?\s*>", re.IGNORECASE | re.DOTALL)
+#: Anything that is not one of the five XML built-ins or a numeric reference.
+#: Publishers emit &nbsp; and &mdash; constantly; a strict parser dies on them,
+#: and an entity we did not declare is exactly what an attacker would send.
+_ENTITY = re.compile(r"&(?!(?:amp|lt|gt|quot|apos|#[0-9]+|#[xX][0-9a-fA-F]+);)[A-Za-z][\w.\-]*;")
 
 
 def _text(node: ET.Element | None) -> str:
@@ -49,14 +55,8 @@ def _find(parent: ET.Element, *paths: str) -> ET.Element | None:
 def _parse_xml(text: str) -> ET.Element:
     # A DOCTYPE is the vector for entity-expansion attacks and carries nothing a
     # feed needs. Removing it is simpler and safer than configuring a parser.
-    cleaned = _DOCTYPE.sub("", text.lstrip("﻿"))
-    parser = ET.XMLParser()
-    try:
-        parser.parser.DefaultHandler = lambda _data: None  # type: ignore[attr-defined]
-        parser.entity = {}                                  # type: ignore[attr-defined]
-    except AttributeError:  # pragma: no cover - non-expat build
-        pass
-    return ET.fromstring(cleaned, parser=parser)
+    cleaned = _ENTITY.sub("", _DOCTYPE.sub("", text.lstrip("\ufeff \t\r\n")))
+    return ET.fromstring(cleaned)
 
 
 def _atom_link(entry: ET.Element) -> str:

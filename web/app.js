@@ -66,14 +66,18 @@ const el = (tag, attrs = {}, ...kids) => {
     else if (v === true) n.setAttribute(k, "");
     else n.setAttribute(k, v);
   }
-  kids.flat().forEach((c) => {
+  /* Deep flatten: a render function that returns a list of rows is a normal
+     thing to nest inside another list, and a stray array reaching replaceChildren
+     stringifies to "[object HTMLElement]" on screen. */
+  kids.flat(Infinity).forEach((c) => {
     if (c == null || c === false) return;
     n.append(c?.nodeType ? c : document.createTextNode(String(c)));
   });
   return n;
 };
 const view = () => document.getElementById("view");
-const clear = (...nodes) => view().replaceChildren(...nodes.flat().filter(Boolean));
+const clear = (...nodes) =>
+  view().replaceChildren(...nodes.flat(Infinity).filter((n) => n != null && n !== false));
 
 let toastTimer = null;
 function toast(message) {
@@ -1040,4 +1044,7 @@ async function boot() {
 
 addEventListener("hashchange", route);
 boot();
-if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(() => {});
+/* Optional chaining, not a presence check: some contexts expose the property
+   without an implementation behind it, and a dashboard that fails to render
+   because offline caching is unavailable would be a poor trade. */
+navigator.serviceWorker?.register("/sw.js").catch(() => {});

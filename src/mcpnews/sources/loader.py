@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from datetime import date, datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -30,6 +30,16 @@ _RESERVED = {"_schema.json", "README.md"}
 
 #: A new source is asked to be re-verified a year out, matching the shipped bundles.
 DEFAULT_EXPIRY_DAYS = 365
+
+
+def today() -> str:
+    """Calendar date in UTC.
+
+    Lifecycle dates are compared against UTC everywhere else, and a source that
+    expires at midnight in one time zone should not expire a day early for a
+    reader in another.
+    """
+    return datetime.now(UTC).date().isoformat()
 
 
 class BundleError(ValueError):
@@ -190,7 +200,7 @@ def ensure_local_bundle() -> Path:
             "bundle": LOCAL_BUNDLE,
             "description": "Sources you added yourself. Never overwritten by an update.",
             "maintainer": "you",
-            "updated": date.today().isoformat(),
+            "updated": today(),
             "sources": [],
         }, header="# Your own sources. Added from the dashboard; yours to read and edit.")
     return path
@@ -201,10 +211,10 @@ def _entry_from(record: SourceRecord) -> dict[str, Any]:
         "id": record.id, "name": record.name, "kind": record.kind, "url": record.url,
         "lang": record.lang, "region": record.region, "topics": record.topics or ["general"],
         "interval_min": record.interval_min, "status": record.status,
-        "added": record.added or date.today().isoformat(),
-        "verified": record.verified or date.today().isoformat(),
-        "expires": record.expires or (date.today() + timedelta(days=DEFAULT_EXPIRY_DAYS)
-                                      ).isoformat(),
+        "added": record.added or today(),
+        "verified": record.verified or today(),
+        "expires": record.expires or (
+            datetime.now(UTC).date() + timedelta(days=DEFAULT_EXPIRY_DAYS)).isoformat(),
     }
     for key in ("replaced_by", "notes"):
         value = getattr(record, key)
@@ -225,7 +235,7 @@ def add_local_source(record: SourceRecord) -> None:
         raise BundleError("err.source.duplicate_id")
     record.bundle = LOCAL_BUNDLE
     sources.append(_entry_from(record))
-    raw["updated"] = date.today().isoformat()
+    raw["updated"] = today()
     validate(raw, filename=path.name)
     write_yaml(path, raw)
 
@@ -239,7 +249,7 @@ def remove_local_source(source_id: str) -> bool:
     raw["sources"] = [s for s in raw.get("sources") or [] if s.get("id") != source_id]
     if len(raw["sources"]) == before:
         return False
-    raw["updated"] = date.today().isoformat()
+    raw["updated"] = today()
     write_yaml(path, raw)
     return True
 
@@ -276,7 +286,7 @@ def update_local_source(source_id: str, changes: dict[str, Any]) -> bool:
     for entry in raw.get("sources") or []:
         if entry.get("id") == source_id:
             entry.update({k: v for k, v in changes.items() if v is not None})
-            raw["updated"] = date.today().isoformat()
+            raw["updated"] = today()
             validate(raw, filename=path.name)
             write_yaml(path, raw)
             return True
@@ -291,12 +301,12 @@ def check(store: ArticleStore) -> dict[str, Any]:
     becomes visible, which is exactly what a database table full of silently
     404-ing feeds never does.
     """
-    today = datetime.now(timezone.utc).date()
+    now = datetime.now(UTC).date()
     ok = failing = expired = 0
     rows: list[dict] = []
     for source in store.list_sources():
         state = store.get_source_state(source.id)
-        is_expired = bool(source.expires and str(source.expires) < today.isoformat())
+        is_expired = bool(source.expires and str(source.expires) < now.isoformat())
         is_failing = state.consecutive_failures >= 3
         if source.status in ("active", "deprecated"):
             if is_failing:

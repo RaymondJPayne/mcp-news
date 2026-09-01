@@ -24,10 +24,10 @@ from __future__ import annotations
 
 import posixpath
 from abc import ABC, abstractmethod
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
-from typing import Callable, Iterable
 
-_REGISTRY: dict[str, type["BlobStorage"]] = {}
+_REGISTRY: dict[str, type[BlobStorage]] = {}
 
 
 def register(name: str) -> Callable[[type], type]:
@@ -37,7 +37,7 @@ def register(name: str) -> Callable[[type], type]:
     return deco
 
 
-def get_backend(name: str) -> type["BlobStorage"]:
+def get_backend(name: str) -> type[BlobStorage]:
     if name not in _REGISTRY:
         raise KeyError(f"unknown storage backend {name!r}; registered: {sorted(_REGISTRY)}")
     return _REGISTRY[name]
@@ -66,7 +66,7 @@ def normalise_key(key: str) -> str:
     if not key:
         raise StorageError("err.generic", "empty storage key")
     normalised = posixpath.normpath(key)
-    if normalised.startswith("..") or normalised.startswith("/"):
+    if normalised.startswith(("..", "/")):
         raise StorageError("err.generic", f"unsafe storage key {key!r}")
     return normalised
 

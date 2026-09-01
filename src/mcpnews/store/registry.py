@@ -10,9 +10,9 @@ __all__ = ["open_store", "registered"]
 
 def open_store(settings: Settings) -> ArticleStore:
     cls = get_backend(settings.store.backend)
-    if settings.store.backend == "sqlite":
-        store = cls(settings.db_path)          # type: ignore[call-arg]
-    else:
-        store = cls(settings.store.dsn)        # type: ignore[call-arg]
+    # SQLite is addressed by a path we derive; every other backend by a DSN the
+    # reader supplied. Backends other than SQLite raise on construction today.
+    target = settings.db_path if settings.store.backend == "sqlite" else settings.store.dsn
+    store = cls(target)                        # type: ignore[call-arg]
     store.initialise()
     return store

@@ -13,13 +13,15 @@ from __future__ import annotations
 import asyncio
 import logging
 import shutil
-from datetime import date, datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI, Query, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, Field
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from mcpnews import __version__, paths
 from mcpnews.api.errors import ApiError, bad_request, not_found, setup_required
@@ -28,14 +30,15 @@ from mcpnews.config import providers as providers_cfg
 from mcpnews.config import settings as settings_cfg
 from mcpnews.i18n import available_locales
 from mcpnews.ingest.canonical import canonicalise, domain_of, is_probably_url
-from mcpnews.ingest.fetcher import FetchError, Fetcher
+from mcpnews.ingest.fetcher import Fetcher, FetchError
 from mcpnews.ingest.pipeline import Collector, rescore
 from mcpnews.rank.scorer import CompiledProfile
 from mcpnews.runtime import App, ensure_config_files
 from mcpnews.search.service import search as run_search
 from mcpnews.search.views import display_score
 from mcpnews.sources import loader
-from mcpnews.sources.registry import adapter_for, registered as registered_kinds, sniff_kind
+from mcpnews.sources.registry import adapter_for, sniff_kind
+from mcpnews.sources.registry import registered as registered_kinds
 from mcpnews.store.base import SourceRecord
 
 log = logging.getLogger("mcpnews.api")
@@ -225,7 +228,7 @@ def create_app(*, collector_loop: bool = True) -> FastAPI:
                     if app.providers.has_embed():
                         from mcpnews.enrich import run_embeddings
                         await run_embeddings(app.store, app.providers, limit=200)
-            except Exception as exc:  # noqa: BLE001 - a loop that dies stops the product
+            except Exception as exc:
                 log.warning("collection loop: %s", exc)
             await asyncio.sleep(max(60, ctx().settings.collection.interval_min * 60))
 
@@ -244,6 +247,26 @@ def create_app(*, collector_loop: bool = True) -> FastAPI:
     @api.exception_handler(ApiError)
     async def _api_error(_request: Request, exc: ApiError) -> JSONResponse:
         return JSONResponse(status_code=exc.status_code, content=exc.detail)
+
+    @api.exception_handler(RequestValidationError)
+    async def _validation_error(_request: Request,
+                                exc: RequestValidationError) -> JSONResponse:
+        """FastAPI's own validation messages are English prose. Replace them.
+
+        The detail is still logged for whoever is debugging; what crosses the wire
+        is a catalogue key the browser can render in the reader's language.
+        """
+        log.info("request validation failed: %s", exc.errors())
+        return JSONResponse(status_code=400,
+                            content={"error": {"key": "err.generic", "params": {}}})
+
+    @api.exception_handler(StarletteHTTPException)
+    async def _http_error(_request: Request, exc: StarletteHTTPException) -> JSONResponse:
+        if isinstance(exc.detail, dict) and "error" in exc.detail:
+            return JSONResponse(status_code=exc.status_code, content=exc.detail)
+        key = "err.not_found" if exc.status_code == 404 else "err.generic"
+        return JSONResponse(status_code=exc.status_code,
+                            content={"error": {"key": key, "params": {}}})
 
     # ================= health, status, locales =============================
     @api.get("/api/health")
@@ -342,7 +365,7 @@ def create_app(*, collector_loop: bool = True) -> FastAPI:
         await asyncio.sleep(0.5)
         try:
             await collect_once()
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             log.warning("first collection: %s", exc)
 
     @api.post("/api/setup/reset")
@@ -362,7 +385,7 @@ def create_app(*, collector_loop: bool = True) -> FastAPI:
         usage = None
         try:
             usage = app.archive.storage.usage().bytes
-        except Exception:  # noqa: BLE001
+        except Exception:
             usage = None
         db = s.db_path
         return {
@@ -489,7 +512,7 @@ def create_app(*, collector_loop: bool = True) -> FastAPI:
         except profile_cfg.ProfileError as exc:
             raise bad_request("err.profile.invalid", detail=exc.detail) from None
         compiled = CompiledProfile(profile)
-        since = (datetime.now(timezone.utc) - timedelta(hours=hours)).isoformat()
+        since = (datetime.now(UTC) - timedelta(hours=hours)).isoformat()
         scored = []
         for article in app.store.iter_articles():
             when = article.published_at or article.fetched_at or ""
@@ -602,7 +625,7 @@ def create_app(*, collector_loop: bool = True) -> FastAPI:
         probe = SourceRecord(id="probe", name=body.name or domain_of(url), kind=kind, url=url)
         try:
             items = adapter_for(kind).parse(response.text, probe)
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             raise bad_request("err.source.unparseable", detail=str(exc)[:200]) from None
         if not items:
             raise bad_request("err.source.empty")
@@ -631,13 +654,14 @@ def create_app(*, collector_loop: bool = True) -> FastAPI:
             source_id = f"{base}_{n}"
             n += 1
 
-        today = date.today().isoformat()
+        today = loader.today()
         record = SourceRecord(
             id=source_id, name=body.name.strip() or domain_of(url), kind=kind, url=url,
             lang=body.lang or "en", region=body.region or "global",
             topics=body.topics or ["general"], interval_min=max(1, body.interval_min),
             status="active", added=today, verified=today,
-            expires=(date.today() + timedelta(days=loader.DEFAULT_EXPIRY_DAYS)).isoformat(),
+            expires=(datetime.now(UTC).date()
+                     + timedelta(days=loader.DEFAULT_EXPIRY_DAYS)).isoformat(),
             bundle=loader.LOCAL_BUNDLE)
         try:
             loader.add_local_source(record)

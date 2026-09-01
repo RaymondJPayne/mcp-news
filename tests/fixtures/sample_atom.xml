@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom" xml:lang="en">
+  <title>Example Research</title>
+  <entry>
+    <id>urn:example:1</id>
+    <title>A paper about open source infrastructure</title>
+    <link rel="alternate" href="https://example.net/papers/1"/>
+    <published>2026-09-01T06:00:00Z</published>
+    <updated>2026-09-01T06:30:00Z</updated>
+    <author><name>Someone</name></author>
+    <summary>We study open source deployment.</summary>
+    <content type="text">A longer discussion of open source deployment practice
+    across several organisations, including a section on self-hosted tooling.</content>
+  </entry>
+</feed>

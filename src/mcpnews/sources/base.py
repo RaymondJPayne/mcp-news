@@ -8,13 +8,14 @@ testable with a fixture file and no network.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any, Callable
+from typing import Any
 
 from mcpnews.ingest.fetcher import Fetcher
 from mcpnews.store.base import SourceRecord, SourceState
 
-_REGISTRY: dict[str, type["SourceAdapter"]] = {}
+_REGISTRY: dict[str, type[SourceAdapter]] = {}
 
 
 def register(kind: str) -> Callable[[type], type]:
@@ -24,7 +25,7 @@ def register(kind: str) -> Callable[[type], type]:
     return deco
 
 
-def get_adapter(kind: str) -> type["SourceAdapter"]:
+def get_adapter(kind: str) -> type[SourceAdapter]:
     if kind not in _REGISTRY:
         raise KeyError(f"unknown source kind {kind!r}; registered: {sorted(_REGISTRY)}")
     return _REGISTRY[kind]
