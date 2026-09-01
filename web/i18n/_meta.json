@@ -1,0 +1,17 @@
+{
+  "format": "flat-json-v1",
+  "purpose": "User-visible strings for the mcp-news dashboard, setup wizard and API messages. One file per locale, named <lang>.json, in this directory.",
+  "structure": "A single flat JSON object. No nesting, no arrays, no comments. Keys are stable dot-paths such as setup.storage.title. Values are plain strings.",
+  "placeholders": "Placeholders are {named} in curly braces. Never translate, reorder away, add or drop a placeholder. If a sentence reads better with the placeholder elsewhere, move it; just keep it present exactly once unless the English uses it more than once.",
+  "plurals": "This project avoids plural machinery on purpose. Where a count varies, the English is written so a single form works, or a separate key exists for the singular case (suffix .one). Translate both when both exist.",
+  "html": "Values are inserted as text, never as HTML. Do not add tags. Ampersands, angle brackets and quotes are safe to write literally.",
+  "tone": "Plain, calm, direct. Address the reader as you. Explain rather than command. Avoid jargon; where a technical term is unavoidable the help text next to it must define it. No exclamation marks. No marketing language.",
+  "product_name": "mcp-news is a product name and stays untranslated in every locale.",
+  "direction": "Set the dir field below to rtl for right-to-left languages. The dashboard sets the document direction from it and the stylesheet uses logical properties throughout.",
+  "how_to_add_a_locale": "Copy en.json to <lang>.json, translate every value, leave every key untouched, then add an entry to locales below. Run pytest tests/test_i18n_parity.py to confirm nothing is missing. See docs/LOCALIZATION.md.",
+  "fallback": "Any key missing from a locale falls back to en.json at runtime, so a partial file degrades rather than breaks. The parity test still fails, because a partial file is a bug.",
+  "locales": {
+    "en": { "name": "English", "endonym": "English", "dir": "ltr" },
+    "pt": { "name": "Portuguese", "endonym": "Português", "dir": "ltr" }
+  }
+}
