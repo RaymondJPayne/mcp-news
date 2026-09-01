@@ -4,9 +4,9 @@ config/profile.yaml
 config/providers.yaml
 config/sources/local.yaml
 
-# data
-data/
-archive/
+# data (anchored to the repository root: src/mcpnews/archive is source code)
+/data/
+/archive/
 *.sqlite
 *.sqlite-wal
 *.sqlite-shm
