@@ -85,6 +85,13 @@ failover:
   require_confirmation_for_paid_failover: false
 ```
 
+**A slot with no key is not a configured slot.** A cloud slot ships with a
+working `base_url` and a default `model`, so those two alone would make a
+completely fresh install claim Tier 2 and then fail on the first request. A slot
+may declare `requires_api_key: true`, and is then treated as unconfigured until
+the environment variable it names actually holds something. Local slots, which
+usually need no key at all, are unaffected.
+
 **Privacy-first ordering.** The default chains put local before cloud, so the
 private engine is tried first and the cloud is a safety net. Reverse it if you
 prefer quality over locality — the code has no opinion, only the file does.

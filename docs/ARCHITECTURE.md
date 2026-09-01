@@ -32,7 +32,10 @@ when the feed did not carry one, extracts readable text, computes a SimHash for
 near-duplicate detection, and writes the article. Nothing here needs a model.
 
 **ARCHIVE** writes the full text to durable storage *before* any relevance
-decision is taken. This is deliberate: what is not captured on first fetch is
+decision is taken. Storage is behind `storage/base.py`, whose keys are logical
+and `/`-separated rather than filesystem paths, so the root can be a bind-mounted
+host directory on any operating system today and an object store later without
+touching a caller. This is deliberate: what is not captured on first fetch is
 often gone within weeks, and a reader who changes their interests later should not
 be punished for what they cared about earlier.
 
@@ -61,6 +64,45 @@ bandwidth and disk. Enrichment costs a GPU or an API bill. So the pipeline gates
 enrichment on relevance, and never gates collection on anything. Collect
 everything, understand selectively, revisit the decision later.
 
+## Configuration, and who edits it
+
+The dashboard is the primary editor. A reader completes a first-run wizard in the
+browser — language, storage location, source bundles, interests — and every
+settings screen afterwards writes the same files. Nothing on the path to a
+working feed requires a text editor, an environment variable or a terminal.
+
+The files are still plain YAML, and that is not a contradiction. Configuration
+belongs to the reader: they should be able to read it, copy it to another
+machine, keep it in version control and understand what it says. What they should
+not have to do is type it.
+
+| File | Written by | Holds |
+|---|---|---|
+| `config/settings.yaml` | wizard, Settings | language, storage paths, bundles, collection behaviour |
+| `config/profile.yaml` | Interests screen | the entire ranking model |
+| `config/providers.yaml` | Settings → AI models | slots, chains, failover. Never a key — only the name of the variable holding one |
+| `config/sources/*.yaml` | shipped, plus the Sources screen | source intent and lifecycle dates |
+
+A value present in `settings.yaml` wins over the environment. The environment
+supplies the *defaults the wizard offers*, which is how a container gets sensible
+starting paths without overriding a choice the reader made afterwards.
+
+## Internationalisation
+
+Every user-visible string lives in `web/i18n/<lang>.json`: one flat JSON object,
+dot-path keys, `{named}` placeholders, no nesting and no compile step. The
+browser merges English underneath the chosen locale, so a missing key degrades
+instead of showing a raw key.
+
+The server never sends an English sentence. API errors and notes are catalogue
+keys with parameters — `{"error": {"key": "err.source.unreachable"}}` — and the
+browser, which knows the reader's language, turns them into words. This is
+structural rather than stylistic: an API that returns prose can only ever be
+localised by translating the server, and by then it is far too late.
+
+Right-to-left is handled by the `dir` attribute and logical CSS properties, not
+by a second stylesheet. See [`LOCALIZATION.md`](LOCALIZATION.md).
+
 ## Storage
 
 Default is a single SQLite file with FTS5 for keyword search and `sqlite-vec` for
@@ -76,7 +118,7 @@ containers to see its first article has already lost most of its potential users
 | Articles, sources, state | SQLite | PostgreSQL |
 | Keyword search | SQLite FTS5 | PostgreSQL FTS |
 | Vectors | sqlite-vec | Qdrant |
-| Archive | gzipped rows in monthly SQLite files | object storage |
+| Archive | gzipped JSON in monthly directories | object storage, Drive, Dropbox |
 | Graph | edge table in SQL | Neo4j |
 
 ## Processes
@@ -96,6 +138,7 @@ Everything a contributor is likely to want to add is a registered class:
 | Enrichment step | `EnrichStep` | `enrich/registry.py` |
 | Scoring rule type | `RuleType` | `rank/rules.py` |
 | Store backend | `ArticleStore` | `store/registry.py` |
+| Archive backend | `BlobStorage` | `storage/registry.py` |
 | Signal detector | `Detector` | `signals/registry.py` |
 
 See [`CONTRIBUTING.md`](../CONTRIBUTING.md).

@@ -60,7 +60,13 @@ scoring:
   cap_per_rule: 16.0    # one rule cannot dominate
   # Query-time decay defaults. NOT applied to the stored score.
   default_half_life_h: 36
+  # What in_title_multiplier is when a rule does not state one.
+  default_in_title_multiplier: 2.0
 ```
+
+Every field has a default, so the shortest useful profile is a name and a few
+words to match. `aliases` on any rule is merged into `match`; they are two ways
+of saying the same thing and the scorer treats them identically.
 
 ## How a score is built
 
@@ -69,7 +75,8 @@ scoring:
 2. Title matches multiply by `in_title_multiplier`.
 3. Sum the hits per rule, then cap at `cap_per_rule` so one repeated name cannot
    swamp everything.
-4. Apply source boost or penalty.
+4. Apply source boost or penalty. A domain in the table matches its subdomains
+   too, so `reuters.com` covers `uk.reuters.com`.
 5. Drop to zero if any `mute` rule matches.
 6. Store the result as `interest_score`, with the list of rules that fired.
 

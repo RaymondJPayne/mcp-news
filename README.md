@@ -3,10 +3,14 @@
 **News for the reader — not news that turns the reader into the product.**
 
 Your news feed is currently chosen by someone whose income depends on how long you
-keep scrolling. `mcp-news` inverts that. You write your interests into a file you
-can read. That file *is* the ranking algorithm. Nothing about you is transmitted
-anywhere, because there is nowhere to transmit it to — the whole thing runs on
-your own machine.
+keep scrolling. `mcp-news` inverts that. You write down what you are interested
+in, and that *is* the ranking algorithm — a list of rules you can read, stored in
+a file you own. Nothing about you is transmitted anywhere, because there is
+nowhere to transmit it to: the whole thing runs on your own machine.
+
+You set it up in a browser. There is no file to edit, no environment variable to
+export and no terminal to open on the way to a working feed. The configuration is
+plain YAML because it is yours, not because you are expected to type it.
 
 Ask it questions through any MCP-compatible AI assistant, or open the dashboard on
 your phone. Both read the same corpus you collected, ranked the way you said.
@@ -25,9 +29,11 @@ A self-hosted news aggregator with three faces:
 
 ## What makes it different
 
-- **Your algorithm is a text file.** `profile.yaml` says what you care about and
-  where. Edit it, and the ranking changes. Read it, and you know exactly why an
-  article surfaced — the dashboard shows the matched rules on every item.
+- **Your algorithm is a list of rules you wrote.** You edit it in the browser; it
+  is stored as `config/profile.yaml`, which you can read, copy and keep under
+  version control. Change it and the feed reorders immediately. Read it and you
+  know exactly why an article surfaced — the dashboard shows the matched rules as
+  chips on every item.
 - **Runs without any AI at all.** No API key, no GPU, no model? It still collects,
   deduplicates, stores and keyword-searches everything, and ranks it against your
   profile. Add a model later and it enriches what it already collected. Nothing is
@@ -38,24 +44,39 @@ A self-hosted news aggregator with three faces:
 - **Sources live in dated, versioned files.** Feeds die, move and get replaced.
   `config/sources/*.yaml` records when each was added, last verified, and whether
   it has been superseded — so a stale list is visible instead of silent.
+- **Speaks your language, and adding one is a single file.** Every string lives
+  in a flat JSON catalogue at `web/i18n/<lang>.json`. English and Portuguese ship
+  complete; a new language is a copied file, translated, with no build step and
+  no restart. Right-to-left is a one-line change. See
+  [`docs/LOCALIZATION.md`](docs/LOCALIZATION.md).
 - **No third-party UI framework.** The dashboard is hand-written HTML, CSS and
   JavaScript served by our own API. No vendor banner, no telemetry, no analytics,
-  no build step.
+  no build step, and no Node anywhere in the container.
 
 ## Quick start
 
 ```bash
 git clone https://github.com/RaymondJPayne/mcp-news
 cd mcp-news
-cp .env.example .env
-cp config/profile.example.yaml config/profile.yaml
 docker compose up -d
 ```
 
-Dashboard on <http://localhost:8378>. It starts collecting immediately — with no
-model configured, in keyword mode.
+Open <http://localhost:8378>. A setup wizard asks you four things — your
+language, where to keep your articles, which source bundles to read, and what you
+are interested in — and then starts collecting. The first articles usually appear
+within a minute or two.
 
-To add intelligence, point `.env` at any OpenAI-compatible endpoint:
+Nothing above needs a file, an editor or a terminal beyond that one command.
+There is no `.env` to copy and no example config to rename.
+
+### Adding a model, later, if you want one
+
+Entirely optional. With no model configured the application collects,
+de-duplicates, stores, keyword-searches and ranks — see *Capability levels*
+below. To add one, open **Settings → AI models** and point a slot at any
+OpenAI-compatible endpoint, local or hosted. Keys are never stored in a
+configuration file: the file names an environment variable, and you put the key
+in `.env` or your shell environment.
 
 ```bash
 LOCAL_CHAT_BASE_URL=http://host.docker.internal:1234/v1
@@ -65,10 +86,12 @@ CLOUD_CHAT_API_KEY=sk-...
 CLOUD_EMBED_API_KEY=sk-...
 ```
 
-Then `docker compose exec node mcpnews enrich --backlog` to process what you
-already have.
+Then `docker compose exec node mcpnews enrich --backlog` processes everything you
+already collected, highest interest score first.
 
-## Your algorithm is a file
+## Your algorithm is a list of rules
+
+You write these in the browser. This is what they look like on disk.
 
 ```yaml
 interests:
@@ -91,7 +114,21 @@ mute:
 ```
 
 No training, no feedback loop you cannot see, no drift. If it surfaces something
-odd, the dashboard tells you which line did it.
+odd, the dashboard tells you which rule did it.
+
+## Capability levels
+
+The application announces which level it is running at, in the header and in
+`/api/status`, so a degraded mode is visible rather than silently worse.
+
+| Level | Needs | You get |
+|---|---|---|
+| **0 — Collect** | nothing at all | Fetching, de-duplication, the archive, keyword search, profile ranking, the dashboard, the MCP keyword tools |
+| **1 — Index** | an embedding model | The above, plus search by meaning and hybrid search |
+| **2 — Understand** | embedding and chat | The above, plus cited answers through `ask` |
+
+Level 0 is the floor the project guarantees, and it is a real product rather than
+a placeholder.
 
 ## Connecting an AI assistant
 
@@ -120,12 +157,21 @@ See [`docs/MCP.md`](docs/MCP.md) for the full tool surface.
 | [`docs/PROFILE.md`](docs/PROFILE.md) | Profile schema and scoring model |
 | [`docs/MCP.md`](docs/MCP.md) | MCP tool reference |
 | [`docs/ROADMAP.md`](docs/ROADMAP.md) | Phases and what "done" means |
+| [`docs/LOCALIZATION.md`](docs/LOCALIZATION.md) | Adding a language, in one file |
 | [`CONTRIBUTING.md`](CONTRIBUTING.md) | Extension points and how to add one |
 
 ## Status
 
-**Phase 0 — scaffold.** Interfaces and structure are defined; implementations are
-being filled in. See [`docs/ROADMAP.md`](docs/ROADMAP.md) for what works today.
+Collecting, ranking, the dashboard and the MCP server work end to end with no
+model configured. Embeddings, chains and failover work when a provider is
+configured. Translation, entity extraction and change detection do not exist yet
+and say so where you would expect to find them.
+
+[`docs/ROADMAP.md`](docs/ROADMAP.md) states each phase honestly, including what
+is stubbed and why.
+
+**This project ships no authentication and claims none.** It binds to
+`127.0.0.1`. If you want it on a network, that is your reverse proxy's job.
 
 ## Licence
 

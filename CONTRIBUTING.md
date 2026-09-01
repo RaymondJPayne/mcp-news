@@ -13,6 +13,9 @@ class plus a decorator, each testable with a fixture and no network.
 | A scoring rule type | `RuleType` | `src/mcpnews/rank/rules.py` |
 | A storage backend | `ArticleStore` | `src/mcpnews/store/backends/` |
 | A trend detector | `Detector` | `src/mcpnews/signals/detectors/` |
+| A database backend | `ArticleStore` | `src/mcpnews/store/backends/` |
+| An archive backend | `BlobStorage` | `src/mcpnews/storage/backends/` |
+| A language | a JSON file | `web/i18n/` |
 
 Each registry validates at startup, so a typo in config is a clear error naming
 the valid options — not a stack trace on first use.
@@ -30,6 +33,21 @@ your PR if it changes.
 **Archive before you judge.** Any code path that fetches article text writes it to
 the archive before any relevance decision. Discarding on first fetch is
 irreversible.
+
+**No user-visible English in code.** Every string a reader can see comes from
+`web/i18n/<lang>.json`. Templates, JavaScript and API responses all obey this: an
+API error is `{"error": {"key": "err.source.unreachable", "params": {}}}` and the
+browser renders it in the reader's language. Add a key to `en.json` in the same
+change that adds the code path — `tests/test_i18n_parity.py` and
+`tests/test_api.py` both fail otherwise. Retrofitting this is the single most
+expensive mistake available in this codebase, which is why it is a rule rather
+than a preference. See [`docs/LOCALIZATION.md`](docs/LOCALIZATION.md).
+
+**Nothing on the happy path may require a text editor.** If your feature needs
+configuration, it needs a control in the dashboard and a line of help text
+explaining it to somebody who has never heard of the thing it configures. The
+YAML files exist so the reader owns their configuration, not so they have to
+type it.
 
 **No third-party UI frameworks or hosted assets.** The dashboard is hand-written
 HTML, CSS and vanilla JavaScript, served from our own origin. No CDN, no vendor
@@ -56,8 +74,13 @@ uv sync                 # install
 uv run pytest           # tests
 uv run ruff check .     # lint
 uv run mcpnews --help   # CLI
+uv run mcpnews serve    # the dashboard on http://127.0.0.1:8378
 docker compose up       # the whole thing
 ```
+
+Running from a source checkout puts configuration in `./config`, the database in
+`./data` and the archive in `./data/archive`. Set `MCPNEWS_CONFIG_DIR`,
+`MCPNEWS_DATA_DIR` or `MCPNEWS_ARCHIVE_DIR` to work against a scratch copy.
 
 Tests must not require network, an API key, or a GPU. Provider and adapter tests
 run against fixtures and a fake provider.

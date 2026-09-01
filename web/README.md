@@ -21,13 +21,28 @@ Three reasons, in order of weight.
 3. **The UI is genuinely simple.** A list, a detail view, a settings form. A
    framework would be more code than the thing it renders.
 
+## Internationalisation
+
+Every string comes from `i18n/<lang>.json` — a flat JSON object with dot-path
+keys and `{named}` placeholders. `app.js` fetches English and the chosen locale,
+merges them so a missing key degrades rather than breaking, and sets the
+document's `lang` and `dir`. There is no build step and no restart.
+
+`styles.css` uses logical properties throughout, so a right-to-left locale is the
+`dir` attribute and nothing else. Adding a language is one file:
+[`../docs/LOCALIZATION.md`](../docs/LOCALIZATION.md).
+
 ## Files
 
 | File | Purpose |
 |---|---|
-| `index.html` | Shell and view containers |
-| `app.js` | Router, API client, rendering |
-| `styles.css` | Design tokens and layout; light and dark |
+| `index.html` | Shell, navigation and view container |
+| `app.js` | Catalogue, router, API client, every view |
+| `styles.css` | Design tokens and layout; light, dark, LTR and RTL |
+| `i18n/en.json` | The reference catalogue |
+| `i18n/pt.json` | A complete second locale |
+| `i18n/_meta.json` | The format, the placeholder rules and the tone guidance |
+| `icon.svg` | Our own mark. No third-party logo appears anywhere. |
 | `manifest.webmanifest` | Installable on a phone |
 | `sw.js` | Service worker — offline read of what you already loaded |
 
@@ -40,12 +55,18 @@ decision about your attention, and this one is made differently.
 Each item shows its **matched rules as chips** — "AI governance +5", "Brazil +4".
 Tap one to see the profile line that fired. The ranking is never a mystery.
 
+- **Setup** — the first-run wizard. Language, storage, source bundles, interests.
+  Shown automatically until configuration is complete, and reachable again from
+  Settings.
 - **Today** — ranked feed, finite, with a clear end.
 - **Search** — keyword or semantic depending on tier; the mode is labelled.
 - **Article** — full stored text, translation toggle, source and archive state.
 - **Sources** — health, lifecycle badges, per-source enable and disable.
 - **Profile** — edit interests and see the feed re-rank live.
-- **Status** — tier, provider health, pending enrichment.
+- **Settings** — language, storage, source bundles, collection behaviour and AI
+  models. Every option carries contextual help written for a reader who has never
+  heard of the thing it configures.
+- **Status** — capability level, provider health, pending enrichment.
 
 ## Mobile
 
