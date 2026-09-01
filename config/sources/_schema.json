@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/RaymondJPayne/mcp-news/config/sources/_schema.json",
+  "title": "mcp-news source bundle",
+  "description": "One topical bundle of feeds. Validated at startup and in CI so a malformed file is a named error rather than a silent half-load.",
+  "type": "object",
+  "required": ["version", "bundle", "sources"],
+  "additionalProperties": false,
+  "properties": {
+    "version": { "type": "integer", "enum": [1] },
+    "bundle": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$" },
+    "description": { "type": "string" },
+    "maintainer": { "type": "string" },
+    "updated": { "type": "string", "format": "date" },
+    "sources": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/source" }
+    }
+  },
+  "$defs": {
+    "isodate": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$" },
+    "source": {
+      "type": "object",
+      "required": ["id", "name", "kind", "url", "lang", "region", "topics",
+                   "interval_min", "status", "added", "verified", "expires"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9_-]*$",
+          "description": "Stable, unique, lowercase. Never reuse an id for a different source."
+        },
+        "name": { "type": "string", "minLength": 1 },
+        "kind": {
+          "type": "string",
+          "description": "Adapter id. Unknown values are a startup error naming the valid options."
+        },
+        "url": { "type": "string", "minLength": 1 },
+        "lang": { "type": "string", "minLength": 2, "maxLength": 8 },
+        "region": { "type": "string", "minLength": 2 },
+        "topics": { "type": "array", "items": { "type": "string" }, "minItems": 1 },
+        "interval_min": { "type": "integer", "minimum": 1 },
+        "status": { "type": "string", "enum": ["active", "paused", "deprecated", "dead"] },
+        "added": { "$ref": "#/$defs/isodate" },
+        "verified": { "$ref": "#/$defs/isodate" },
+        "expires": { "$ref": "#/$defs/isodate" },
+        "replaced_by": { "type": "string" },
+        "notes": { "type": "string" },
+        "config": { "type": "object" },
+        "auth": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": { "api_key_env": { "type": "string" } },
+          "description": "Names the environment variable holding a key. Never a literal key."
+        }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "status": { "const": "deprecated" } },
+                  "required": ["status"] },
+          "then": { "required": ["replaced_by"] }
+        }
+      ]
+    }
+  }
+}
